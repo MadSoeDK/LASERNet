@@ -10,4 +10,5 @@ dependencies = [
     "pandas>=2.3.3",
     "tensorboard>=2.20.0",
     "torch>=2.9.0",
+    "torchvision>=0.24.0",
 ]
