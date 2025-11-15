@@ -1,4 +1,4 @@
-from model.CNN_LSTM import CNN_LSTM
+from lasernet.model.CNN_LSTM import CNN_LSTM
 from dataset.dataloader import get_dataloaders
 import torch
 import torch.nn as nn
