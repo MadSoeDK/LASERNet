@@ -391,4 +391,70 @@ class PointCloudDataset(Dataset):
         }
 
 
-__all__ = ["PointCloudDataset", "FieldType", "PlaneType", "SplitType"]
+class TemperatureSequenceDataset(Dataset):
+    """Wraps PointCloudDataset to return (context, target) pairs for next-frame prediction"""
+    
+    def __init__(
+        self,
+        split: SplitType,
+        sequence_length: int = 5,
+        target_offset: int = 1,
+        plane_index: int = -1,
+        axis_scan_files: int = 3,
+    ):
+        self.base_dataset = PointCloudDataset(
+            field="temperature",
+            plane="xy",
+            split=split,
+            plane_index=plane_index,
+            axis_scan_files=axis_scan_files,
+        )
+        self.sequence_length = sequence_length
+        self.target_offset = target_offset
+        
+        # Calculate valid starting indices
+        min_required = sequence_length + target_offset
+        if len(self.base_dataset) < min_required:
+            raise ValueError(
+                f"Not enough timesteps ({len(self.base_dataset)}) for "
+                f"sequence_length={sequence_length} + target_offset={target_offset}"
+            )
+        self.valid_indices = list(range(len(self.base_dataset) - min_required + 1))
+    
+    def __len__(self) -> int:
+        return len(self.valid_indices)
+    
+    def __getitem__(self, idx: int) -> dict:
+        start_idx = self.valid_indices[idx]
+        
+        # Get context frames (past sequence)
+        context_frames = []
+        context_masks = []
+        context_timesteps = []
+        for i in range(start_idx, start_idx + self.sequence_length):
+            sample = self.base_dataset[i]
+            context_frames.append(sample["data"])  # [1, H, W]
+            context_masks.append(sample["mask"])   # [H, W]
+            context_timesteps.append(sample["timestep"])
+        
+        context = torch.stack(context_frames, dim=0)  # [seq_len, 1, H, W]
+        context_mask = torch.stack(context_masks, dim=0)  # [seq_len, H, W]
+        
+        # Get target frame (next timestep)
+        target_idx = start_idx + self.sequence_length + self.target_offset - 1
+        target_sample = self.base_dataset[target_idx]
+        target = target_sample["data"]  # [1, H, W]
+        target_mask = target_sample["mask"]  # [H, W]
+        
+        return {
+            "context": context,
+            "context_mask": context_mask,
+            "target": target,
+            "target_mask": target_mask,
+            "timestep": start_idx,
+            "context_timesteps": torch.tensor(context_timesteps),  # All context timesteps
+            "target_timestep": target_sample["timestep"],  # Target timestep
+        }
+
+
+__all__ = ["PointCloudDataset", "TemperatureSequenceDataset", "FieldType", "PlaneType", "SplitType"]

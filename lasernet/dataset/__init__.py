@@ -5,6 +5,7 @@ from lasernet.dataset.loading import (
     PlaneType,
     PointCloudDataset,
     SplitType,
+    TemperatureSequenceDataset,
 )
 
-__all__ = ["PointCloudDataset", "FieldType", "PlaneType", "SplitType"]
+__all__ = ["PointCloudDataset", "TemperatureSequenceDataset", "FieldType", "PlaneType", "SplitType"]
