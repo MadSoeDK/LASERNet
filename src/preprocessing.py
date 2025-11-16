@@ -1,5 +1,6 @@
 import os
 import shutil
+from PIL import Image
 
 
 INPUT_DIR = "data/laser_raw"
@@ -17,4 +18,10 @@ for folder in os.listdir(INPUT_DIR):
                     os.path.join(INPUT_DIR, folder, file),
                     os.path.join(OUTPUT_DIR, file),
                 )
+
+                # Crop the image (since it has a light purple background)
+                image = Image.open(os.path.join(OUTPUT_DIR, file))
+                image = image.crop((124, 510, 124 + 2668, 510 + 534))
+                image.save(os.path.join(OUTPUT_DIR, file))
+
                 print(f"Copied {file} to {OUTPUT_DIR}")
