@@ -1,8 +1,17 @@
 from lasernet.model.CNN_LSTM import CNN_LSTM
 from dataset.dataloader import get_dataloaders
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from model.CNN_LSTM import CNN_LSTM
+#from dataset.dataloader import get_dataloaders
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from dataset_images.dataloader import get_image_dataloaders
+
+root_dir = "/Users/eva/Documents/DataSpatiotemporal/"
 
 # Device setup
 if torch.cuda.is_available():
@@ -15,13 +24,18 @@ else:
     device = torch.device("cpu")
     print("Using CPU only")
 
+#Dataloader
+train_loader, val_loader, test_loader = get_image_dataloaders(
+    root_dir=root_dir,
+    seq_length=5,
+    batch_size=1)
+
+
 # Model
 model = CNN_LSTM().to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = nn.MSELoss()
 
-# Data
-train_loader, val_loader = get_dataloaders(batch_size=2, sequence_length=5)
 
 # Training loop
 num_epochs = 10
@@ -30,8 +44,8 @@ for epoch in range(num_epochs):
     train_loss = 0
 
     for seq, target in train_loader:
-        seq = seq.float().to(device)
-        target = target.float().to(device)
+        seq = seq.float().to(device) #[B, seq, 1, H, W]
+        target = target.float().to(device) #[B, 1, H, W]
 
         optimizer.zero_grad()
 

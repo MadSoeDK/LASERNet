@@ -104,3 +104,21 @@ class CNN_LSTM(torch.nn.Module):
 #print(y.shape)
 #shape is now [1, 256, 97, 182] after 4 maxpoolings
 
+class Decoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1), # 4→8
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),  # 8→16
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),   # 16→32
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 1, 4, stride=2, padding=1),    # 32→64
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+

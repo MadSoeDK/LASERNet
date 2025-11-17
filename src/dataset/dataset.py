@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 
 # Grids are stored as (width, height) to match the raw data description.
-GRID_SHAPE: Tuple[int, int] = (1554, 2916)
+GRID_SHAPE: Tuple[int, int] = (1554, 2916) #shape, but where is channel?
 
 
 def _find_csv(data_dir: Path, timestep: int, prefix: str = "Alldata_") -> Path:

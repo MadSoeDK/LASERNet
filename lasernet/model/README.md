@@ -1,11 +1,10 @@
 !IMPORTANT!
-The model outputs a downsized vector in shape[batch_size, 4096]. 
-The target values need to be changed to initial training to work: 
+The model outputs a downsized vector in shape [batch_size, 256, 4, 4]
+The target values need to be changed for initial training to work: 
 Like this: 
 pred = model(seq)
 target_latent = model.encode_frame(target)
 loss = criterion(pred, target_latent)
-
 
 Architecture: 
 
