@@ -1,3 +1,5 @@
 figures/
 __pycache__/
 logs/
+data/
+.DS_Store
