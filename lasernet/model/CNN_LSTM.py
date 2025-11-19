@@ -1,22 +1,6 @@
-"""
-Simple CNN-LSTM model for temperature field prediction.
-
-This is a lightweight architecture designed to be trainable on small datasets (~600 samples).
-Uses ConvLSTM to preserve spatial structure and avoid massive fully-connected layers.
-
-Key design choices:
-- Small channel counts (16 → 32 → 64) to reduce parameters
-- ConvLSTM instead of flattening - preserves 2D spatial structure
-- No skip connections - simpler, less overfitting
-- Single conv per block - faster, fewer parameters
-- Visualization hooks to track activations during training
-
-Total parameters: ~2.5M (vs 705M in previous version)
-"""
-
 import torch
 import torch.nn as nn
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 class ConvLSTMCell(nn.Module):
@@ -124,14 +108,12 @@ class ConvLSTM(nn.Module):
 
 class CNN_LSTM(nn.Module):
     """
-    Simple CNN-LSTM for temperature field prediction.
+    CNN-LSTM for temperature field prediction.
 
     Architecture:
         Encoder: 3 conv blocks (1 → 16 → 32 → 64 channels) with pooling
         ConvLSTM: Temporal modeling on spatial features
         Decoder: 3 upsampling blocks (64 → 32 → 16 → 1 channel)
-
-    Parameters: ~2.5M (trainable on small datasets)
 
     Input:  [B, seq_len, 1, H, W]  e.g., [4, 3, 1, 93, 464]
     Output: [B, 1, H, W]            e.g., [4, 1, 93, 464]
@@ -152,7 +134,7 @@ class CNN_LSTM(nn.Module):
         self.hidden_channels = hidden_channels
         self.lstm_hidden = lstm_hidden
 
-        # Temperature normalization parameters (registered as buffers, not parameters)
+        # Temperature normalization parameters (registered as buffers, not learnable parameters)
         self.register_buffer('temp_min', torch.tensor(temp_min))
         self.register_buffer('temp_max', torch.tensor(temp_max))
 
@@ -216,8 +198,10 @@ class CNN_LSTM(nn.Module):
         batch_size, seq_len, channels, orig_h, orig_w = seq.size()
 
         # Normalize input: [temp_min, temp_max] → [0, 1]
-        seq = (seq - self.temp_min) / (self.temp_max - self.temp_min)
-        seq = torch.clamp(seq, 0, 1)  # Clamp to [0, 1] for safety
+        temp_min = self.temp_min.to(device=seq.device, dtype=seq.dtype)
+        temp_max = self.temp_max.to(device=seq.device, dtype=seq.dtype)
+        seq = (seq - temp_min) / (temp_max - temp_min)
+        seq = torch.clamp(seq, 0, 1)
 
         # Clear previous activations
         self.activations.clear()
@@ -275,42 +259,3 @@ class CNN_LSTM(nn.Module):
     def count_parameters(self) -> int:
         """Count total trainable parameters"""
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
-
-
-def create_simple_cnn_lstm(**kwargs) -> CNN_LSTM:
-    """
-    Factory function to create a simple CNN-LSTM model.
-
-    Default configuration is optimized for small datasets.
-    """
-    return CNN_LSTM(**kwargs)
-
-
-if __name__ == "__main__":
-    # Test the model
-    model = CNN_LSTM()
-
-    # Print architecture
-    print("=" * 70)
-    print("Simple CNN-LSTM Model")
-    print("=" * 70)
-    print(f"Total parameters: {model.count_parameters():,}")
-    print(f"\nArchitecture:")
-    print(model)
-
-    # Test forward pass
-    batch_size = 2
-    seq_len = 3
-    height, width = 93, 464  # After downsampling by factor 2
-
-    x = torch.randn(batch_size, seq_len, 1, height, width)
-    print(f"\nInput shape: {x.shape}")
-
-    with torch.no_grad():
-        y = model(x)
-
-    print(f"Output shape: {y.shape}")
-    print(f"\nActivations captured: {list(model.get_activations().keys())}")
-
-    for name, activation in model.get_activations().items():
-        print(f"  {name}: {activation.shape}")

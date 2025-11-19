@@ -515,16 +515,11 @@ class TemperatureSequenceDataset(Dataset):
 
 class SliceSequenceDataset(Dataset):
     """
-    Dataset for temporal sequences with spatial diversity through multi-slice sampling.
+    Slices PointCloudDataset for temporal sequences with multi-slice sampling.
 
-    Each sample is a temporal sequence for a FIXED spatial slice. This maintains
+    Each sample is a temporal sequence for a fixed spatial slice. This maintains
     temporal consistency (same slice through time) while providing spatial diversity
     (many slices = many training samples).
-
-    PERFORMANCE: By default, all data is pre-loaded into memory (~550 MB for 658 samples).
-    Pre-loading takes ~5 minutes (reads each timestep file once). This speeds up training
-    from 43 min/epoch to <1 sec/epoch. Disable with preload=False if memory is constrained
-    (but training will be VERY slow).
 
     Args:
         field: Type of data to load - "temperature" or "microstructure"
@@ -640,10 +635,6 @@ class SliceSequenceDataset(Dataset):
     def _preload_all_data(self) -> None:
         """
         Pre-load all samples into memory with optimized batched CSV reading.
-
-        OPTIMIZATION: Instead of reading each CSV file 100+ times (once per get_slice call),
-        we read each timestep file ONCE and extract ALL needed slices in a single pass.
-        This reduces disk I/O from 2,576 reads to ~17-24 reads (one per timestep).
         """
         print(f"\nPre-loading {len(self)} samples into memory...")
         print(f"  Optimized strategy: Reading each timestep file only once...")
@@ -712,7 +703,7 @@ class SliceSequenceDataset(Dataset):
         )
         total_memory_mb = (sample_memory * len(self)) / (1024 ** 2)
 
-        print(f"✓ Pre-loading complete!")
+        print(f"  Pre-loading complete")
         print(f"  Total samples: {len(self)}")
         print(f"  Memory used: ~{total_memory_mb:.1f} MB")
         print()
@@ -767,7 +758,7 @@ class SliceSequenceDataset(Dataset):
 
     def _load_all_slices_from_timestep(self, timestep_idx: int) -> Dict[float, Tuple[torch.Tensor, torch.Tensor]]:
         """
-        Load ALL required slices from a single timestep file in one pass.
+        Load all required slices from a single timestep file in one pass.
 
         Args:
             timestep_idx: Timestep index (0 to len(self.base_dataset)-1)

@@ -232,8 +232,18 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for Adam optimizer")
     parser.add_argument("--visualize-every", type=int, default=20, help="Visualize activations every N epochs (0 to disable)")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
+    parser.add_argument("--split-ratio", type=str, default="12,6,6", help="Train/Val/Test split ratio (e.g., '12,6,6')")
+    parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames in input sequence")
     args = parser.parse_args()
     device = get_device()
+
+    # Parse split ratios
+    split_ratios = list(map(int, args.split_ratio.split(",")))
+    train_ratio = split_ratios[0] / sum(split_ratios)
+    val_ratio = split_ratios[1] / sum(split_ratios)
+    test_ratio = split_ratios[2] / sum(split_ratios)
+
+    seq_len = args.seq_length
 
     # Create timestamped run directory
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -266,44 +276,41 @@ def main() -> None:
     print()
 
     # Create datasets for train, validation, and test
-    # Use custom ratios to ensure all splits have enough timesteps
-    # With 24 total timesteps and sequence_length=3 + target_offset=1, we need >= 5 timesteps per split
-    # Using ratios 0.583/0.208/0.208 gives: train=14, val=5, test=5 timesteps ✓
     print("Loading datasets...")
     train_dataset = SliceSequenceDataset(
         field="temperature",
         plane="xz",
         split="train",
-        sequence_length=3,
+        sequence_length=seq_len,
         target_offset=1,
         preload=not args.no_preload,
-        train_ratio=14/24,  # Exact: 0.583333...
-        val_ratio=5/24,     # Exact: 0.208333...
-        test_ratio=5/24,    # Exact: 0.208333...
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        test_ratio=test_ratio,
     )
 
     val_dataset = SliceSequenceDataset(
         field="temperature",
         plane="xz",
         split="val",
-        sequence_length=3,
+        sequence_length=seq_len,
         target_offset=1,
         preload=not args.no_preload,
-        train_ratio=14/24,  # Exact: 0.583333...
-        val_ratio=5/24,     # Exact: 0.208333...
-        test_ratio=5/24,    # Exact: 0.208333...
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        test_ratio=test_ratio,
     )
 
     test_dataset = SliceSequenceDataset(
         field="temperature",
         plane="xz",
         split="test",
-        sequence_length=3,
+        sequence_length=seq_len,
         target_offset=1,
         preload=not args.no_preload,
-        train_ratio=14/24,  # Exact: 0.583333...
-        val_ratio=5/24,     # Exact: 0.208333...
-        test_ratio=5/24,    # Exact: 0.208333...
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        test_ratio=test_ratio,
     )
 
     print(f"\nDataset: SliceSequenceDataset")
