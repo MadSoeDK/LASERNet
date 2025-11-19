@@ -18,33 +18,21 @@ from lasernet.utils import create_training_report, plot_losses, visualize_predic
 
 def train_tempnet(
     model: CNN_LSTM,
-    dataset: SliceSequenceDataset,
-    batch_size: int,
-    lr: float,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    optimizer: optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
     epochs: int,
     run_dir: Path,
     visualize_every: int = 5,
 ) -> Dict[str, list[float]]:
-    
-    train_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,  # Always shuffle false, otherwise it breaks temporal sequence dependencies
-        num_workers=0,
-    )
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Training on:", device)
-    if device.type == "cpu":
-        print("WARNING: Training on CPU may be very slow!")
-
-    model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.MSELoss()
 
     history: Dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+    best_val_loss = float('inf')
 
     for epoch in range(epochs):
+        # ==================== TRAINING ====================
         model.train()
         train_loss = 0.0
         num_train_samples = 0
@@ -76,19 +64,55 @@ def train_tempnet(
         avg_train_loss = train_loss / max(1, num_train_samples)
         history["train_loss"].append(avg_train_loss)
 
-        print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.4f}")
+        # ==================== VALIDATION ====================
+        model.eval()
+        val_loss = 0.0
+        num_val_samples = 0
+
+        with torch.no_grad():
+            val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{epochs} [Val]", leave=False)
+            for batch in val_pbar:
+                context = batch["context"].float().to(device)
+                target = batch["target"].float().to(device)
+                target_mask = batch["target_mask"].to(device)
+
+                pred = model(context)
+
+                mask_expanded = target_mask.unsqueeze(1)
+                loss = criterion(pred[mask_expanded], target[mask_expanded])
+
+                batch_size = context.size(0)
+                val_loss += loss.item() * batch_size
+                num_val_samples += batch_size
+
+                val_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+        avg_val_loss = val_loss / max(1, num_val_samples)
+        history["val_loss"].append(avg_val_loss)
+
+        print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.4f}, val loss={avg_val_loss:.4f}")
+
+        # Save best model checkpoint
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'train_loss': avg_train_loss,
+                'val_loss': avg_val_loss,
+            }, run_dir / "checkpoints" / "best_model.pt")
+            print(f"  → Best model saved (val loss: {avg_val_loss:.4f})")
 
         # Visualize activations periodically
         if visualize_every > 0 and (epoch + 1) % visualize_every == 0:
             print(f"  Generating visualizations for epoch {epoch + 1}...")
             model.eval()
             with torch.no_grad():
-                # Get a sample batch
+                # Training visualization
                 sample_batch = next(iter(train_loader))
                 sample_context = sample_batch["context"].float().to(device)
                 sample_target = sample_batch["target"].float().to(device)
-
-                # Generate prediction
                 sample_pred = model(sample_context)
 
                 # Create training report (activations, distributions, stats)
@@ -99,17 +123,93 @@ def train_tempnet(
                     epoch=epoch + 1
                 )
 
-                # Visualize prediction
+                # Visualize training prediction
                 visualize_prediction(
                     context=sample_context.cpu(),
                     target=sample_target.cpu(),
                     prediction=sample_pred.cpu(),
-                    save_path=str(run_dir / "visualizations" / f"prediction_epoch_{epoch + 1:03d}.png"),
+                    save_path=str(run_dir / "visualizations" / f"train_prediction_epoch_{epoch + 1:03d}.png"),
                     sample_idx=0
                 )
-            model.train()
+
+                # Validation visualization
+                val_batch = next(iter(val_loader))
+                val_context = val_batch["context"].float().to(device)
+                val_target = val_batch["target"].float().to(device)
+                val_pred = model(val_context)
+
+                visualize_prediction(
+                    context=val_context.cpu(),
+                    target=val_target.cpu(),
+                    prediction=val_pred.cpu(),
+                    save_path=str(run_dir / "visualizations" / f"val_prediction_epoch_{epoch + 1:03d}.png"),
+                    sample_idx=0
+                )
 
     return history
+
+
+def evaluate_test(
+    model: CNN_LSTM,
+    test_loader: DataLoader,
+    criterion: nn.Module,
+    device: torch.device,
+    run_dir: Path,
+) -> Dict[str, float]:
+    """Evaluate model on test set and generate visualizations."""
+
+    print("\n" + "=" * 70)
+    print("Evaluating on test set...")
+    print("=" * 70)
+
+    model.eval()
+    test_loss = 0.0
+    num_test_samples = 0
+
+    with torch.no_grad():
+        test_pbar = tqdm(test_loader, desc="Testing", leave=False)
+        for batch in test_pbar:
+            context = batch["context"].float().to(device)
+            target = batch["target"].float().to(device)
+            target_mask = batch["target_mask"].to(device)
+
+            pred = model(context)
+
+            mask_expanded = target_mask.unsqueeze(1)
+            loss = criterion(pred[mask_expanded], target[mask_expanded])
+
+            batch_size = context.size(0)
+            test_loss += loss.item() * batch_size
+            num_test_samples += batch_size
+
+            test_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+    avg_test_loss = test_loss / max(1, num_test_samples)
+
+    print(f"Test loss: {avg_test_loss:.4f}")
+
+    # Generate test visualizations
+    print("Generating test visualizations...")
+    with torch.no_grad():
+        test_batch = next(iter(test_loader))
+        test_context = test_batch["context"].float().to(device)
+        test_target = test_batch["target"].float().to(device)
+        test_pred = model(test_context)
+
+        visualize_prediction(
+            context=test_context.cpu(),
+            target=test_target.cpu(),
+            prediction=test_pred.cpu(),
+            save_path=str(run_dir / "visualizations" / "test_prediction.png"),
+            sample_idx=0
+        )
+
+    test_results = {
+        "test_loss": avg_test_loss,
+        "num_samples": num_test_samples,
+    }
+
+    return test_results
 
 
 def get_device() -> torch.device:
@@ -127,10 +227,10 @@ def get_device() -> torch.device:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the LASERNet CNN-LSTM model")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training/validation")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for Adam optimizer")
-    parser.add_argument("--visualize-every", type=int, default=10, help="Visualize activations every N epochs (0 to disable)")
+    parser.add_argument("--visualize-every", type=int, default=20, help="Visualize activations every N epochs (0 to disable)")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
     args = parser.parse_args()
     device = get_device()
@@ -165,30 +265,82 @@ def main() -> None:
     print(f"  Memory (FP32):    ~{param_count * 4 / 1024**2:.1f} MB")
     print()
 
-    # Create dataset
-    dataset = SliceSequenceDataset(
+    # Create datasets for train, validation, and test
+    # Use custom ratios to ensure all splits have enough timesteps
+    # With 24 total timesteps and sequence_length=3 + target_offset=1, we need >= 5 timesteps per split
+    # Using ratios 0.583/0.208/0.208 gives: train=14, val=5, test=5 timesteps ✓
+    print("Loading datasets...")
+    train_dataset = SliceSequenceDataset(
         field="temperature",
         plane="xz",
         split="train",
         sequence_length=3,
         target_offset=1,
-        preload=not args.no_preload,  # Pre-load by default for speed
+        preload=not args.no_preload,
+        train_ratio=14/24,  # Exact: 0.583333...
+        val_ratio=5/24,     # Exact: 0.208333...
+        test_ratio=5/24,    # Exact: 0.208333...
     )
 
-    print(f"Dataset: SliceSequenceDataset")
-    print(f"  Total samples: {len(dataset)}")
-    print(f"  Sequences:     {dataset.num_valid_sequences}")
-    print(f"  Slices:        {len(dataset.slice_coords)}")
-    print(f"  Formula:       {dataset.num_valid_sequences} × {len(dataset.slice_coords)} = {len(dataset)}")
+    val_dataset = SliceSequenceDataset(
+        field="temperature",
+        plane="xz",
+        split="val",
+        sequence_length=3,
+        target_offset=1,
+        preload=not args.no_preload,
+        train_ratio=14/24,  # Exact: 0.583333...
+        val_ratio=5/24,     # Exact: 0.208333...
+        test_ratio=5/24,    # Exact: 0.208333...
+    )
+
+    test_dataset = SliceSequenceDataset(
+        field="temperature",
+        plane="xz",
+        split="test",
+        sequence_length=3,
+        target_offset=1,
+        preload=not args.no_preload,
+        train_ratio=14/24,  # Exact: 0.583333...
+        val_ratio=5/24,     # Exact: 0.208333...
+        test_ratio=5/24,    # Exact: 0.208333...
+    )
+
+    print(f"\nDataset: SliceSequenceDataset")
+    print(f"  Train samples: {len(train_dataset):5d} ({train_dataset.num_valid_sequences} seqs × {len(train_dataset.slice_coords)} slices)")
+    print(f"  Val samples:   {len(val_dataset):5d} ({val_dataset.num_valid_sequences} seqs × {len(val_dataset.slice_coords)} slices)")
+    print(f"  Test samples:  {len(test_dataset):5d} ({test_dataset.num_valid_sequences} seqs × {len(test_dataset.slice_coords)} slices)")
     print()
 
     # Get a sample to show dimensions
-    sample = dataset[0]
+    sample = train_dataset[0]
     print(f"Sample dimensions:")
     print(f"  Context: {sample['context'].shape}")
     print(f"  Target:  {sample['target'].shape}")
     print("=" * 70)
     print()
+
+    # Create data loaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,  # No shuffling for temporal sequences
+        num_workers=0,
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=0,
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=0,
+    )
 
     # Save configuration
     config = {
@@ -212,12 +364,15 @@ def main() -> None:
         "dataset": {
             "field": "temperature",
             "plane": "xz",
-            "split": "train",
             "sequence_length": 3,
             "target_offset": 1,
-            "total_samples": len(dataset),
-            "num_sequences": dataset.num_valid_sequences,
-            "num_slices": len(dataset.slice_coords),
+            "train_samples": len(train_dataset),
+            "val_samples": len(val_dataset),
+            "test_samples": len(test_dataset),
+            "train_sequences": train_dataset.num_valid_sequences,
+            "val_sequences": val_dataset.num_valid_sequences,
+            "test_sequences": test_dataset.num_valid_sequences,
+            "num_slices": len(train_dataset.slice_coords),
             "downsample_factor": 2,
             "preload": not args.no_preload,
         },
@@ -230,12 +385,18 @@ def main() -> None:
     print(f"Saved configuration to {run_dir / 'config.json'}")
     print()
 
+    # Setup training components
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    criterion = nn.MSELoss()
+
     # Train
     history = train_tempnet(
         model=model,
-        dataset=dataset,
-        batch_size=args.batch_size,
-        lr=args.lr,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        optimizer=optimizer,
+        criterion=criterion,
+        device=device,
         epochs=args.epochs,
         run_dir=run_dir,
         visualize_every=args.visualize_every,
@@ -246,6 +407,7 @@ def main() -> None:
     print("Training complete!")
     print("=" * 70)
     print(f"Final train loss: {history['train_loss'][-1]:.4f}")
+    print(f"Final val loss:   {history['val_loss'][-1]:.4f}")
 
     # Save training history
     with open(run_dir / "history.json", "w") as f:
@@ -260,10 +422,25 @@ def main() -> None:
     torch.save({
         'epoch': args.epochs,
         'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
         'config': config,
         'history': history,
     }, run_dir / "checkpoints" / "final_model.pt")
     print(f"Saved final model to {run_dir / 'checkpoints' / 'final_model.pt'}")
+
+    # Evaluate on test set
+    test_results = evaluate_test(
+        model=model,
+        test_loader=test_loader,
+        criterion=criterion,
+        device=device,
+        run_dir=run_dir,
+    )
+
+    # Save test results
+    with open(run_dir / "test_results.json", "w") as f:
+        json.dump(test_results, f, indent=2)
+    print(f"Saved test results to {run_dir / 'test_results.json'}")
 
     print()
     print(f"All outputs saved to: {run_dir}")

@@ -3,3 +3,4 @@ __pycache__/
 logs/
 CLAUDE.md
 runs/
+*.pt
