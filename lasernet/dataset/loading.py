@@ -111,34 +111,34 @@ class PointCloudDataset(Dataset):
     """
     PyTorch Dataset for LASERNet point cloud data.
 
-    Loads 2D plane slices from 3D point cloud CSV files with automatic
-    train/val/test splitting and caching.
+    Manages 3D point cloud data and provides 2D plane slice extraction.
+    Indexes by timestep with optional single-slice mode for backward compatibility.
 
     Args:
         field: Type of data to load - "temperature" or "microstructure"
         plane: Plane to extract - "xy", "yz", or "xz"
         split: Dataset split - "train", "val", or "test"
         data_dir: Path to data directory (defaults to $BLACKHOLE/Data)
-        plane_index: Index of plane slice to extract (0 = first, -1 = last, None = middle)
+        plane_index: [DEPRECATED] Index of plane slice for single-slice mode (0 = first, -1 = last, None = middle)
         pattern: File pattern for CSV files
         chunk_size: Rows per chunk when reading CSV files
         cache_size: Number of frames to cache in memory (0 = no cache)
         train_ratio: Fraction of data for training (default 0.7)
         val_ratio: Fraction of data for validation (default 0.15)
         test_ratio: Fraction of data for testing (default 0.15)
-        axis_scan_files: Number of files to scan for coordinate metadata (None = all files)
+        axis_scan_files: Number of files to scan for coordinate metadata (default 1, shared coordinate system)
+        downsample_factor: Downsample coordinates by this factor (default 2, takes every 2nd point)
 
-    Returns:
-        Dictionary with keys:
-            - 'data': Tensor of shape [channels, height, width]
-            - 'mask': Boolean mask of shape [height, width] indicating valid pixels
-            - 'timestep': Timestep index (int)
-            - 'coords': Dict with 'width', 'height', and 'plane' coordinate arrays
+    Primary Usage:
+        Use get_slice(timestep_idx, slice_coord) to extract 2D slices.
+        For training with multiple slices, use SliceSequenceDataset wrapper.
 
     Example:
         >>> dataset = PointCloudDataset(field="temperature", plane="xy", split="train")
-        >>> sample = dataset[0]
-        >>> print(sample['data'].shape)  # e.g., torch.Size([1, 100, 200])
+        >>> len(dataset)  # Number of timesteps (e.g., 17)
+        >>> slice_coord = dataset.axis_values['z'][0]  # Get first Z coordinate
+        >>> sample = dataset.get_slice(0, slice_coord)
+        >>> print(sample['data'].shape)  # e.g., torch.Size([1, 93, 464])
     """
 
     def __init__(
@@ -154,7 +154,8 @@ class PointCloudDataset(Dataset):
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
         test_ratio: float = 0.15,
-        axis_scan_files: Optional[int] = None,
+        axis_scan_files: int = 1,
+        downsample_factor: int = 2,
     ):
         # Validate inputs
         if field not in ("temperature", "microstructure"):
@@ -169,6 +170,7 @@ class PointCloudDataset(Dataset):
         self.split = split
         self.chunk_size = chunk_size
         self.cache_size = cache_size
+        self.downsample_factor = downsample_factor
 
         # Discover data files
         self.data_dir = _resolve_data_dir(data_dir)
@@ -195,19 +197,17 @@ class PointCloudDataset(Dataset):
         # Initialize cache
         self._cache: OrderedDict[int, Tuple[torch.Tensor, torch.Tensor]] = OrderedDict()
 
-    def _build_axis_metadata(self, axis_scan_files: Optional[int]) -> None:
+    def _build_axis_metadata(self, axis_scan_files: int) -> None:
         """Scan files to build coordinate system metadata.
 
         Args:
-            axis_scan_files: Number of files to scan (None = all files, for most robust metadata)
+            axis_scan_files: Number of files to scan (1 is usually sufficient since coordinate system is shared)
         """
         axis_cols = list(AXIS_COLUMNS.values())
         uniques = {axis: set() for axis in AXIS_COLUMNS.keys()}
 
-        # Determine which files to scan
-        files_to_scan = self.files
-        if axis_scan_files is not None and axis_scan_files > 0:
-            files_to_scan = self.files[:axis_scan_files]
+        # Scan limited number of files (coordinate system is shared across timesteps)
+        files_to_scan = self.files[:axis_scan_files]
 
         # Scan files to collect all unique coordinates
         for file_path in files_to_scan:
@@ -215,7 +215,7 @@ class PointCloudDataset(Dataset):
                 for axis, col in AXIS_COLUMNS.items():
                     uniques[axis].update(chunk[col].unique())
 
-        # Sort and store
+        # Sort, downsample, and store
         self.axis_values = {}
         self.axis_lookup = {}
         self.axis_tol = {}
@@ -223,6 +223,10 @@ class PointCloudDataset(Dataset):
         for axis, values in uniques.items():
             # keep float64 precision so lookup matches raw CSV coordinates
             sorted_vals = np.array(sorted(values), dtype=np.float64)
+
+            # Apply downsampling: take every Nth coordinate
+            sorted_vals = sorted_vals[::self.downsample_factor]
+
             self.axis_values[axis] = sorted_vals
             self.axis_lookup[axis] = {float(v): i for i, v in enumerate(sorted_vals)}
 
@@ -259,9 +263,17 @@ class PointCloudDataset(Dataset):
         else:
             return MICROSTRUCTURE_COLUMNS
 
-    def _load_frame(self, timestep_idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Load a single frame from disk."""
+    def _load_frame(self, timestep_idx: int, slice_coord: Optional[float] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Load a single frame from disk at specified slice coordinate.
+
+        Args:
+            timestep_idx: Index into self.files (NOT self.timesteps)
+            slice_coord: Coordinate along fixed axis (uses self.plane_coord if None)
+        """
         file_path = self.files[timestep_idx]
+
+        # Use provided slice_coord or fall back to self.plane_coord
+        coord = slice_coord if slice_coord is not None else self.plane_coord
 
         # Get coordinate columns
         width_col = AXIS_COLUMNS[self.width_axis]
@@ -291,7 +303,7 @@ class PointCloudDataset(Dataset):
         for chunk in pd.read_csv(file_path, usecols=usecols, chunksize=self.chunk_size):
             # Filter to plane
             plane_chunk = chunk[
-                np.isclose(chunk[fixed_col], self.plane_coord, atol=tol)
+                np.isclose(chunk[fixed_col], coord, atol=tol)
             ]
 
             if plane_chunk.empty:
@@ -329,7 +341,7 @@ class PointCloudDataset(Dataset):
 
         if not found:
             raise ValueError(
-                f"No data found for plane {self.plane} at coord {self.plane_coord} "
+                f"No data found for plane {self.plane} at coord {coord} "
                 f"in file {file_path.name}"
             )
 
@@ -372,7 +384,7 @@ class PointCloudDataset(Dataset):
         return (num_samples, num_channels, height, width)
 
     def __getitem__(self, index: int) -> Dict[str, torch.Any]:
-        """Get a single sample."""
+        """Get a single sample (backward compatibility mode using plane_index)."""
         if index < 0 or index >= len(self.timesteps):
             raise IndexError(f"Index {index} out of range")
 
@@ -390,6 +402,48 @@ class PointCloudDataset(Dataset):
             }
         }
 
+    def get_slice(self, timestep_idx: int, slice_coord: float) -> Dict[str, torch.Any]:
+        """
+        Extract 2D plane slice at specific (timestep, slice_coordinate).
+
+        Args:
+            timestep_idx: Timestep index (0 to len(self.timesteps)-1)
+            slice_coord: Coordinate along the fixed axis (e.g., Z value for XY plane)
+
+        Returns:
+            Dictionary with keys:
+                - 'data': Tensor of shape [channels, height, width]
+                - 'mask': Boolean mask of shape [height, width]
+                - 'timestep': Timestep index (int)
+                - 'slice_coord': The slice coordinate (float)
+                - 'coords': Dict with 'width', 'height' coordinate arrays
+
+        Example:
+            >>> dataset = PointCloudDataset(field="temperature", plane="xy", split="train")
+            >>> z_coord = dataset.axis_values['z'][10]  # 10th Z-slice
+            >>> sample = dataset.get_slice(0, z_coord)
+            >>> print(sample['data'].shape)  # [1, 93, 464]
+        """
+        if timestep_idx < 0 or timestep_idx >= len(self.timesteps):
+            raise IndexError(f"Timestep index {timestep_idx} out of range [0, {len(self.timesteps)})")
+
+        # Map dataset index to file index
+        file_idx = self.timesteps[timestep_idx]
+
+        # Load frame at specific slice
+        data, mask = self._load_frame(file_idx, slice_coord)
+
+        return {
+            'data': data,
+            'mask': mask,
+            'timestep': timestep_idx,
+            'slice_coord': slice_coord,
+            'coords': {
+                'width': torch.from_numpy(self.axis_values[self.width_axis].astype(np.float32)),
+                'height': torch.from_numpy(self.axis_values[self.height_axis].astype(np.float32)),
+            }
+        }
+
 
 class TemperatureSequenceDataset(Dataset):
     """Wraps PointCloudDataset to return (context, target) pairs for next-frame prediction"""
@@ -400,7 +454,8 @@ class TemperatureSequenceDataset(Dataset):
         sequence_length: int = 5,
         target_offset: int = 1,
         plane_index: int = -1,
-        axis_scan_files: int = 3,
+        axis_scan_files: int = 1,
+        downsample_factor: int = 2,
     ):
         self.base_dataset = PointCloudDataset(
             field="temperature",
@@ -408,6 +463,7 @@ class TemperatureSequenceDataset(Dataset):
             split=split,
             plane_index=plane_index,
             axis_scan_files=axis_scan_files,
+            downsample_factor=downsample_factor,
         )
         self.sequence_length = sequence_length
         self.target_offset = target_offset
@@ -457,4 +513,164 @@ class TemperatureSequenceDataset(Dataset):
         }
 
 
-__all__ = ["PointCloudDataset", "TemperatureSequenceDataset", "FieldType", "PlaneType", "SplitType"]
+class SliceSequenceDataset(Dataset):
+    """
+    Dataset for temporal sequences with spatial diversity through multi-slice sampling.
+
+    Each sample is a temporal sequence for a FIXED spatial slice. This maintains
+    temporal consistency (same slice through time) while providing spatial diversity
+    (many slices = many training samples).
+
+    Args:
+        field: Type of data to load - "temperature" or "microstructure"
+        plane: Plane to extract - "xy", "yz", or "xz"
+        split: Dataset split - "train", "val", or "test"
+        sequence_length: Number of frames in context sequence
+        target_offset: Offset from last context frame to target (1 = next frame)
+        max_slices: Maximum number of slices to sample (None = all available)
+        data_dir: Path to data directory (defaults to $BLACKHOLE/Data)
+        pattern: File pattern for CSV files
+        chunk_size: Rows per chunk when reading CSV files
+        train_ratio: Fraction of data for training (default 0.7)
+        val_ratio: Fraction of data for validation (default 0.15)
+        test_ratio: Fraction of data for testing (default 0.15)
+        axis_scan_files: Number of files to scan for coordinate metadata (default 1)
+        downsample_factor: Downsample coordinates by this factor (default 2)
+
+    Returns (in __getitem__):
+        Dictionary with keys:
+            - 'context': Tensor [seq_len, channels, height, width]
+            - 'context_mask': Boolean mask [seq_len, height, width]
+            - 'target': Tensor [channels, height, width]
+            - 'target_mask': Boolean mask [height, width]
+            - 'slice_coord': The slice coordinate (float)
+            - 'timestep_start': Starting timestep index (int)
+            - 'context_timesteps': List of context timestep indices
+            - 'target_timestep': Target timestep index (int)
+
+    Example:
+        >>> dataset = SliceSequenceDataset(
+        ...     field="temperature",
+        ...     plane="xy",
+        ...     split="train",
+        ...     sequence_length=5,
+        ...     max_slices=10  # Use first 10 Z-slices
+        ... )
+        >>> print(len(dataset))  # e.g., 13 valid sequences × 10 slices = 130
+        >>> sample = dataset[0]
+        >>> print(sample['context'].shape)  # [5, 1, 93, 464]
+    """
+
+    def __init__(
+        self,
+        field: FieldType,
+        plane: PlaneType,
+        split: SplitType,
+        sequence_length: int = 5,
+        target_offset: int = 1,
+        max_slices: Optional[int] = None,
+        data_dir: Optional[Union[str, Path]] = None,
+        pattern: str = "Alldata_withpoints_*.csv",
+        chunk_size: int = 500_000,
+        train_ratio: float = 0.7,
+        val_ratio: float = 0.15,
+        test_ratio: float = 0.15,
+        axis_scan_files: int = 1,
+        downsample_factor: int = 2,
+    ):
+        # Create base dataset without plane_index (we'll use get_slice instead)
+        self.base_dataset = PointCloudDataset(
+            field=field,
+            plane=plane,
+            split=split,
+            data_dir=data_dir,
+            plane_index=None,  # Not used, we'll call get_slice
+            pattern=pattern,
+            chunk_size=chunk_size,
+            cache_size=0,  # Disable caching since we're accessing multiple slices
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            axis_scan_files=axis_scan_files,
+            downsample_factor=downsample_factor,
+        )
+
+        self.sequence_length = sequence_length
+        self.target_offset = target_offset
+
+        # Get available slice coordinates along the fixed axis
+        _, _, fixed_axis = _get_plane_axes(plane)
+        all_slice_coords = self.base_dataset.axis_values[fixed_axis]
+
+        # Apply max_slices limit if specified
+        if max_slices is not None and max_slices > 0:
+            self.slice_coords = all_slice_coords[:max_slices]
+        else:
+            self.slice_coords = all_slice_coords
+
+        # Calculate valid sequence starting timesteps
+        min_required = sequence_length + target_offset
+        num_timesteps = len(self.base_dataset)
+
+        if num_timesteps < min_required:
+            raise ValueError(
+                f"Not enough timesteps ({num_timesteps}) for "
+                f"sequence_length={sequence_length} + target_offset={target_offset}"
+            )
+
+        self.num_valid_sequences = num_timesteps - min_required + 1
+
+    def __len__(self) -> int:
+        """Total samples = valid_sequences × num_slices"""
+        return self.num_valid_sequences * len(self.slice_coords)
+
+    def __getitem__(self, idx: int) -> Dict[str, torch.Any]:
+        """
+        Get temporal sequence for one spatial slice.
+
+        Index mapping maintains temporal grouping:
+          - Indices 0 to (num_slices-1): All slices for sequence starting at t=0
+          - Indices num_slices to (2*num_slices-1): All slices for sequence starting at t=1
+          - etc.
+        """
+        if idx < 0 or idx >= len(self):
+            raise IndexError(f"Index {idx} out of range [0, {len(self)})")
+
+        # Map flat index to (sequence_start, slice_index)
+        num_slices = len(self.slice_coords)
+        timestep_start = idx // num_slices
+        slice_idx = idx % num_slices
+        slice_coord = float(self.slice_coords[slice_idx])
+
+        # Load context frames: same slice_coord, consecutive timesteps
+        context_frames = []
+        context_masks = []
+        context_timesteps = []
+
+        for t in range(timestep_start, timestep_start + self.sequence_length):
+            frame = self.base_dataset.get_slice(t, slice_coord)
+            context_frames.append(frame['data'])
+            context_masks.append(frame['mask'])
+            context_timesteps.append(frame['timestep'])
+
+        # Load target frame
+        target_t = timestep_start + self.sequence_length + self.target_offset - 1
+        target_frame = self.base_dataset.get_slice(target_t, slice_coord)
+
+        # Stack context frames
+        context = torch.stack(context_frames, dim=0)  # [seq_len, C, H, W]
+        context_mask = torch.stack(context_masks, dim=0)  # [seq_len, H, W]
+
+        return {
+            'context': context,
+            'context_mask': context_mask,
+            'target': target_frame['data'],
+            'target_mask': target_frame['mask'],
+            'slice_coord': slice_coord,
+            'timestep_start': timestep_start,
+            'context_timesteps': torch.tensor(context_timesteps),
+            'target_timestep': target_frame['timestep'],
+        }
+
+
+__all__ = ["PointCloudDataset", "TemperatureSequenceDataset", "SliceSequenceDataset", "FieldType", "PlaneType", "SplitType"]
