@@ -10,18 +10,24 @@ def plot_losses(history: Dict[str, list[float]], save_path: str) -> None:
     """Plot and save training and validation losses.
 
     Args:
-        history: Dictionary containing 'train_loss' and 'val_loss' lists
+        history: Dictionary containing 'train_loss' and optionally 'val_loss' lists
         save_path: Path where the plot will be saved (e.g., 'figures/training_losses.png')
     """
     plt.figure(figsize=(10, 6))
     epochs = range(1, len(history["train_loss"]) + 1)
 
     plt.plot(epochs, history["train_loss"], "b-o", label="Train Loss", linewidth=2, markersize=6)
-    plt.plot(epochs, history["val_loss"], "r-s", label="Val Loss", linewidth=2, markersize=6)
+
+    # Only plot validation loss if it exists
+    if "val_loss" in history and len(history["val_loss"]) > 0:
+        plt.plot(epochs, history["val_loss"], "r-s", label="Val Loss", linewidth=2, markersize=6)
+        title = "Training and Validation Loss"
+    else:
+        title = "Training Loss"
 
     plt.xlabel("Epoch", fontsize=12)
     plt.ylabel("Loss (MSE)", fontsize=12)
-    plt.title("Training and Validation Loss", fontsize=14, fontweight="bold")
+    plt.title(title, fontsize=14, fontweight="bold")
     plt.legend(fontsize=11)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()

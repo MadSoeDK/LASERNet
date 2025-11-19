@@ -2,3 +2,4 @@ figures/
 __pycache__/
 logs/
 CLAUDE.md
+runs/
