@@ -17,12 +17,9 @@ help:
 	@echo "  make train-micro    - Submit microstructure prediction job to HPC"
 	@echo ""
 	@echo "Testing (local/interactive):"
-	@echo "  make test           - Run quick test of temperature model (CPU)"
 	@echo "  make test-micro     - Run quick test of microstructure model (CPU)"
 	@echo ""
 	@echo "Interactive GPU testing:"
-	@echo "  make test-volta     - Test on Volta V100 GPU (voltash)"
-	@echo "  make test-sxm2      - Test on Volta V100-SXM2 GPU (sxm2sh)"
 	@echo "  make test-a100      - Test on A100 GPU (a100sh)"
 	@echo ""
 	@echo "Aliases:"
@@ -50,12 +47,7 @@ submit-micro: train-micro
 
 # ==================== LOCAL TESTING (CPU) ====================
 
-test:
-	@echo "Running quick test of temperature model (CPU)..."
-	uv run python test_microstructure.py
-
 test-micro:
-	@echo "Running quick test of microstructure model (CPU)..."
 	uv run python test_microstructure.py
 
 # ==================== INTERACTIVE GPU TESTING ====================
