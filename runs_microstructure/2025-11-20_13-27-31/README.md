@@ -75,21 +75,25 @@ The close alignment between validation and test losses indicates good generaliza
 
 ## Qualitative Results
 
-### Validation Set Predictions
+### Test Set Predictions (Unseen Data)
 
-Example predictions on validation data (used for model selection):
+Example predictions on test data (completely held out during training):
 
-![Val Sample 1](visualizations/model_performance_on_validation_set/prediction_sample_0000.png)
-![Val Sample 2](visualizations/model_performance_on_validation_set/prediction_sample_0046.png)
-![Val Sample 3](visualizations/model_performance_on_validation_set/prediction_sample_0093.png)
+<table>
+  <tr>
+    <td><img src="visualizations/model_performance_on_test_set/prediction_sample_0000.png" width="400"/></td>
+    <td><img src="visualizations/model_performance_on_test_set/prediction_sample_0046.png" width="400"/></td>
+  </tr>
+  <tr>
+    <td><img src="visualizations/model_performance_on_test_set/prediction_sample_0093.png" width="400"/></td>
+    <td><img src="visualizations/model_performance_on_test_set/prediction_sample_0140.png" width="400"/></td>
+  </tr>
+</table>
 
-### Test Set Predictions
-
-Example predictions on test data (completely unseen):
-
-![Test Sample 1](visualizations/model_performance_on_test_set/prediction_sample_0000.png)
-![Test Sample 2](visualizations/model_performance_on_test_set/prediction_sample_0046.png)
-![Test Sample 3](visualizations/model_performance_on_test_set/prediction_sample_0093.png)
+**Observations:**
+- Model accurately predicts zero microstructure in molten regions (high temperature)
+- Solidified regions show stable, consistent microstructure predictions
+- Most error occurs near the solidification front where structure is actively forming
 
 ---
 
