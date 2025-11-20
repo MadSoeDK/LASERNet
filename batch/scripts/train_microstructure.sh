@@ -1,9 +1,9 @@
 #!/bin/bash
 #BSUB -J micro-net
 #BSUB -q gpua100
-#BSUB -n 4
+#BSUB -n 8
 #BSUB -gpu "num=1:mode=exclusive_process"
-#BSUB -W 15:00
+#BSUB -W 23:00
 #BSUB -R "span[hosts=1]"
 #BSUB -R "rusage[mem=64GB]"
 ##BSUB -u s211548@dtu.dk
