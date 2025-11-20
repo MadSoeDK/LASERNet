@@ -214,12 +214,20 @@ def main():
                        help='Checkpoint filename (best_model.pt or final_model.pt)')
     parser.add_argument('--num-samples', type=int, default=5,
                        help='Number of samples to visualize')
-    parser.add_argument('--split', type=str, default='val',
+    parser.add_argument('--split', type=str, default='train',
                        help='Dataset split (train/val/test)')
+    parser.add_argument('--split-ratio', type=str, default='13,5,6',
+                       help='Train/Val/Test split ratio (e.g., "13,5,6" gives 13 train, 5 val, 6 test)')
     parser.add_argument('--plane', type=str, default='xz',
                        help='Plane to visualize (xy/yz/xz)')
 
     args = parser.parse_args()
+
+    # Parse split ratios
+    split_ratios = list(map(int, args.split_ratio.split(',')))
+    train_ratio = split_ratios[0] / sum(split_ratios)
+    val_ratio = split_ratios[1] / sum(split_ratios)
+    test_ratio = split_ratios[2] / sum(split_ratios)
 
     run_dir = Path(args.run_dir)
     checkpoint_path = run_dir / 'checkpoints' / args.checkpoint
@@ -242,11 +250,16 @@ def main():
 
     # Create dataset
     print(f"\nLoading {args.split} dataset...")
+    print(f"Using split ratio: train={train_ratio:.2%}, val={val_ratio:.2%}, test={test_ratio:.2%}")
+    print(f"                   ({split_ratios[0]}/{split_ratios[1]}/{split_ratios[2]} out of 24 timesteps)")
     dataset = MicrostructureSequenceDataset(
         plane=args.plane,
         split=args.split,
         sequence_length=3,
         preload=False,
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        test_ratio=test_ratio,
     )
     print(f"  Dataset size: {len(dataset)} samples")
 
