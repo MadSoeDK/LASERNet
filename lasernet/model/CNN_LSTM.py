@@ -126,7 +126,7 @@ class CNN_LSTM(nn.Module):
         lstm_hidden: int = 64,
         lstm_layers: int = 1,
         temp_min: float = 300.0,  # Room temperature baseline
-        temp_max: float = 2000.0,  # Max expected temperature
+        temp_max: float = 4500.0,  # Max expected temperature. TODO: calculate from data
     ):
         super().__init__()
 
@@ -134,7 +134,7 @@ class CNN_LSTM(nn.Module):
         self.hidden_channels = hidden_channels
         self.lstm_hidden = lstm_hidden
 
-        # Temperature normalization parameters (registered as buffers, not learnable parameters)
+        # Temperature normalization (registered as buffers, not learnable parameters)
         self.register_buffer('temp_min', torch.tensor(temp_min))
         self.register_buffer('temp_max', torch.tensor(temp_max))
 

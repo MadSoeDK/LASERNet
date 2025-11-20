@@ -12,7 +12,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from lasernet.dataset import SliceSequenceDataset, SplitType
+from lasernet.dataset import SliceSequenceDataset
 from lasernet.model.CNN_LSTM import CNN_LSTM
 from lasernet.utils import create_training_report, plot_losses, visualize_prediction
 
@@ -32,7 +32,7 @@ def train_tempnet(
     best_val_loss = float('inf')
 
     for epoch in range(epochs):
-        # ==================== TRAINING ====================
+        # Training
         model.train()
         train_loss = 0.0
         num_train_samples = 0
@@ -64,7 +64,7 @@ def train_tempnet(
         avg_train_loss = train_loss / max(1, num_train_samples)
         history["train_loss"].append(avg_train_loss)
 
-        # ==================== VALIDATION ====================
+        # Validation
         model.eval()
         val_loss = 0.0
         num_val_samples = 0
@@ -230,9 +230,9 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training/validation")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for Adam optimizer")
-    parser.add_argument("--visualize-every", type=int, default=20, help="Visualize activations every N epochs (0 to disable)")
+    parser.add_argument("--visualize-every", type=int, default=25, help="Visualize activations every N epochs (0 to disable)")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
-    parser.add_argument("--split-ratio", type=str, default="12,6,6", help="Train/Val/Test split ratio (e.g., '12,6,6')")
+    parser.add_argument("--split-ratio", type=str, default="10,6,8", help="Train/Val/Test split ratio")
     parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames in input sequence")
     args = parser.parse_args()
     device = get_device()
@@ -381,6 +381,7 @@ def main() -> None:
             "test_sequences": test_dataset.num_valid_sequences,
             "num_slices": len(train_dataset.slice_coords),
             "downsample_factor": 2,
+            "split_ratio": (train_ratio, val_ratio, test_ratio),
             "preload": not args.no_preload,
         },
         "device": str(device),
