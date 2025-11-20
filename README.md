@@ -11,33 +11,18 @@ LASERNet uses CNN-LSTM architectures to predict spatiotemporal evolution from 3D
 
 ## Quick Start
 
-### Setup
-
-```bash
-# Install uv package manager
-pip install uv
-
-# Install dependencies
-uv sync
-
-# Run training
-uv run python train.py
-```
-
 ### Common Commands (Makefile)
 
 ```bash
 # Show all available commands
 make help
 
-# Test models locally (CPU)
-make test          # Temperature model
-make test-micro    # Microstructure model
+# Setup environment
+make init          # Syncs the uv env
+                   # Installs uv if no bin available
 
 # Test on GPU interactively
 make test-a100     # A100 GPU (recommended)
-make test-volta    # V100 GPU
-make test-sxm2     # V100-SXM2 GPU
 
 # Submit batch jobs to HPC
 make train         # Temperature prediction
@@ -137,36 +122,6 @@ python train_microstructure.py \
   --seq-length 3 \
   --plane xz \
   --split-ratio "12,6,6"
-```
-
-## HPC Usage
-
-### Interactive GPU Testing
-
-```bash
-# Get interactive shell on GPU node
-a100sh  # or voltash, sxm2sh
-
-# Navigate to project
-cd /zhome/4a/d/162008/repos/LASERNet
-
-# Load CUDA module (REQUIRED!)
-module load cuda/12.4
-
-# Check GPU availability
-nvidia-smi
-
-# Select free GPU
-export CUDA_VISIBLE_DEVICES=0
-
-# Run test
-source .venv/bin/activate
-python test_microstructure.py
-```
-
-Or use the automated commands:
-```bash
-make test-a100    # Handles everything automatically
 ```
 
 ### Batch Job Submission
