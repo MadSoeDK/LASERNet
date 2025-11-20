@@ -2,6 +2,7 @@
 
 from lasernet.dataset.loading import (
     FieldType,
+    MicrostructureSequenceDataset,
     PlaneType,
     PointCloudDataset,
     SliceSequenceDataset,
@@ -13,6 +14,7 @@ __all__ = [
     "PointCloudDataset",
     "TemperatureSequenceDataset",
     "SliceSequenceDataset",
+    "MicrostructureSequenceDataset",
     "FieldType",
     "PlaneType",
     "SplitType",

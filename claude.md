@@ -369,7 +369,7 @@ uv run python lasernet/dataset/preprocess_data.py
 - **Main entry point**: [train.py](train.py)
 - **Model definition**: [lasernet/model/CNN_LSTM.py](lasernet/model/CNN_LSTM.py:109)
 - **Dataset**: [lasernet/dataset/loading.py](lasernet/dataset/loading.py:519) (`SliceSequenceDataset`)
-- **Environment variable**: `BLACKHOLE=/dtu/blackhole/06/168550` (data location)
+- **Environment variable**: `BLACKHOLE=/dtu/blackhole/06/168550` (data location, set automatically in dataset code)
 - **Current plane**: XZ (height × width, fixed Y coordinate)
 - **Typical shapes**:
   - Input: `[batch, 3, 1, 93, 464]` (3 frames, 1 channel, height, width)
@@ -407,7 +407,7 @@ Input Sequence: [B, seq_len=3, 1, 93, 464]
 ## Troubleshooting
 
 **Common Issues**:
-1. **"BLACKHOLE environment variable not set"**: Export `BLACKHOLE=/dtu/blackhole/06/168550`
+1. **"BLACKHOLE environment variable not set"**: This should not happen - the dataset code sets it automatically to `/dtu/blackhole/06/168550`. If you see this error, check that the import is working correctly.
 2. **CSV loading slow**: Use `--no-preload` flag or run preprocessing script
 3. **Out of memory**: Reduce batch size or disable pre-loading
 4. **No validation/test data**: Check split ratios (need enough timesteps)

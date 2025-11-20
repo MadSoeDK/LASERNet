@@ -1049,12 +1049,13 @@ class MicrostructureSequenceDataset(Dataset):
             micro_sample = self.micro_dataset._preloaded_data[idx]
 
             # Combine into unified sample
+            # Note: microstructure has 10 channels (9 IPF + 1 origin), we only use first 9 (IPF)
             self._preloaded_data[idx] = {
-                'context_temp': temp_sample['context'],       # [seq_len, 1, H, W]
-                'context_micro': micro_sample['context'],     # [seq_len, 9, H, W]
-                'future_temp': temp_sample['target'],         # [1, H, W]
-                'target_micro': micro_sample['target'],       # [9, H, W]
-                'target_mask': micro_sample['target_mask'],   # [H, W]
+                'context_temp': temp_sample['context'],           # [seq_len, 1, H, W]
+                'context_micro': micro_sample['context'][:, :9],  # [seq_len, 9, H, W] - IPF only
+                'future_temp': temp_sample['target'],             # [1, H, W]
+                'target_micro': micro_sample['target'][:9],       # [9, H, W] - IPF only
+                'target_mask': micro_sample['target_mask'],       # [H, W]
                 'slice_coord': temp_sample['slice_coord'],
                 'timestep_start': temp_sample['timestep_start'],
                 'context_timesteps': temp_sample['context_timesteps'],
@@ -1095,11 +1096,11 @@ class MicrostructureSequenceDataset(Dataset):
         micro_sample = self.micro_dataset[idx]
 
         return {
-            'context_temp': temp_sample['context'],       # [seq_len, 1, H, W]
-            'context_micro': micro_sample['context'],     # [seq_len, 9, H, W]
-            'future_temp': temp_sample['target'],         # [1, H, W]
-            'target_micro': micro_sample['target'],       # [9, H, W]
-            'target_mask': micro_sample['target_mask'],   # [H, W]
+            'context_temp': temp_sample['context'],           # [seq_len, 1, H, W]
+            'context_micro': micro_sample['context'][:, :9],  # [seq_len, 9, H, W] - IPF only
+            'future_temp': temp_sample['target'],             # [1, H, W]
+            'target_micro': micro_sample['target'][:9],       # [9, H, W] - IPF only
+            'target_mask': micro_sample['target_mask'],       # [H, W]
             'slice_coord': temp_sample['slice_coord'],
             'timestep_start': temp_sample['timestep_start'],
             'context_timesteps': temp_sample['context_timesteps'],
