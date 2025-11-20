@@ -20,6 +20,9 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
+import os
+os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+
 
 def discover_files(data_dir: Path, pattern: str = "Alldata_withpoints_*.csv") -> List[Path]:
     """Find all CSV files matching the pattern."""

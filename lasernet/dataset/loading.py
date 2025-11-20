@@ -11,6 +11,9 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+import os
+os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+
 # Type aliases for clarity
 FieldType = Literal["temperature", "microstructure"]
 PlaneType = Literal["xy", "yz", "xz"]
@@ -447,7 +450,7 @@ class PointCloudDataset(Dataset):
 
 class TemperatureSequenceDataset(Dataset):
     """Wraps PointCloudDataset to return (context, target) pairs for next-frame prediction"""
-    
+
     def __init__(
         self,
         split: SplitType,
@@ -467,7 +470,7 @@ class TemperatureSequenceDataset(Dataset):
         )
         self.sequence_length = sequence_length
         self.target_offset = target_offset
-        
+
         # Calculate valid starting indices
         min_required = sequence_length + target_offset
         if len(self.base_dataset) < min_required:
@@ -476,13 +479,13 @@ class TemperatureSequenceDataset(Dataset):
                 f"sequence_length={sequence_length} + target_offset={target_offset}"
             )
         self.valid_indices = list(range(len(self.base_dataset) - min_required + 1))
-    
+
     def __len__(self) -> int:
         return len(self.valid_indices)
-    
+
     def __getitem__(self, idx: int) -> dict:
         start_idx = self.valid_indices[idx]
-        
+
         # Get context frames (past sequence)
         context_frames = []
         context_masks = []
@@ -492,16 +495,16 @@ class TemperatureSequenceDataset(Dataset):
             context_frames.append(sample["data"])  # [1, H, W]
             context_masks.append(sample["mask"])   # [H, W]
             context_timesteps.append(sample["timestep"])
-        
+
         context = torch.stack(context_frames, dim=0)  # [seq_len, 1, H, W]
         context_mask = torch.stack(context_masks, dim=0)  # [seq_len, H, W]
-        
+
         # Get target frame (next timestep)
         target_idx = start_idx + self.sequence_length + self.target_offset - 1
         target_sample = self.base_dataset[target_idx]
         target = target_sample["data"]  # [1, H, W]
         target_mask = target_sample["mask"]  # [H, W]
-        
+
         return {
             "context": context,
             "context_mask": context_mask,
