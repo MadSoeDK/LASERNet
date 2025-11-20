@@ -911,4 +911,208 @@ class SliceSequenceDataset(Dataset):
         }
 
 
-__all__ = ["PointCloudDataset", "TemperatureSequenceDataset", "SliceSequenceDataset", "FieldType", "PlaneType", "SplitType"]
+class MicrostructureSequenceDataset(Dataset):
+    """
+    Dataset for microstructure prediction conditioned on temperature.
+
+    Returns sequences of (temperature + microstructure) for context,
+    plus the next temperature frame, to predict the next microstructure frame.
+
+    Args:
+        plane: Plane to extract - "xy", "yz", or "xz"
+        split: Dataset split - "train", "val", or "test"
+        sequence_length: Number of context frames (default 3)
+        target_offset: Offset from last context frame to target (default 1)
+        max_slices: Maximum number of slices to sample (None = all available)
+        data_dir: Path to data directory (defaults to $BLACKHOLE/Data)
+        pattern: File pattern for CSV files
+        chunk_size: Rows per chunk when reading CSV files
+        train_ratio: Fraction of data for training (default 0.7)
+        val_ratio: Fraction of data for validation (default 0.15)
+        test_ratio: Fraction of data for testing (default 0.15)
+        axis_scan_files: Number of files to scan for coordinate metadata
+        downsample_factor: Downsample coordinates by this factor (default 2)
+        preload: Pre-load all data into memory (default True)
+
+    Returns (in __getitem__):
+        Dictionary with keys:
+            - 'context_temp': [seq_len, 1, H, W] - context temperature frames
+            - 'context_micro': [seq_len, 9, H, W] - context microstructure frames
+            - 'future_temp': [1, H, W] - next temperature frame
+            - 'target_micro': [9, H, W] - target microstructure frame
+            - 'target_mask': [H, W] - valid pixel mask
+            - 'slice_coord': slice coordinate (float)
+            - 'timestep_start': starting timestep index
+            - 'context_timesteps': list of context timesteps
+            - 'target_timestep': target timestep
+
+    Example:
+        >>> dataset = MicrostructureSequenceDataset(
+        ...     plane="xy",
+        ...     split="train",
+        ...     sequence_length=3,
+        ...     max_slices=10
+        ... )
+        >>> sample = dataset[0]
+        >>> print(sample['context_temp'].shape)  # [3, 1, 93, 464]
+        >>> print(sample['context_micro'].shape)  # [3, 9, 93, 464]
+        >>> print(sample['future_temp'].shape)  # [1, 93, 464]
+        >>> print(sample['target_micro'].shape)  # [9, 93, 464]
+    """
+
+    def __init__(
+        self,
+        plane: PlaneType,
+        split: SplitType,
+        sequence_length: int = 3,
+        target_offset: int = 1,
+        max_slices: Optional[int] = None,
+        data_dir: Optional[Union[str, Path]] = None,
+        pattern: str = "Alldata_withpoints_*.csv",
+        chunk_size: int = 500_000,
+        train_ratio: float = 0.7,
+        val_ratio: float = 0.15,
+        test_ratio: float = 0.15,
+        axis_scan_files: int = 1,
+        downsample_factor: int = 2,
+        preload: bool = True,
+    ):
+        # Create temperature dataset
+        self.temp_dataset = SliceSequenceDataset(
+            field="temperature",
+            plane=plane,
+            split=split,
+            sequence_length=sequence_length,
+            target_offset=target_offset,
+            max_slices=max_slices,
+            data_dir=data_dir,
+            pattern=pattern,
+            chunk_size=chunk_size,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            axis_scan_files=axis_scan_files,
+            downsample_factor=downsample_factor,
+            preload=False,  # We'll handle preloading ourselves
+        )
+
+        # Create microstructure dataset (shares same metadata)
+        self.micro_dataset = SliceSequenceDataset(
+            field="microstructure",
+            plane=plane,
+            split=split,
+            sequence_length=sequence_length,
+            target_offset=target_offset,
+            max_slices=max_slices,
+            data_dir=data_dir,
+            pattern=pattern,
+            chunk_size=chunk_size,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            axis_scan_files=axis_scan_files,
+            downsample_factor=downsample_factor,
+            preload=False,
+        )
+
+        self.sequence_length = sequence_length
+        self.target_offset = target_offset
+        self.preload = preload
+        self._preloaded_data: Optional[Dict[int, Dict[str, torch.Any]]] = None
+
+        if self.preload:
+            self._preload_all_data()
+
+    def _preload_all_data(self) -> None:
+        """Pre-load all samples into memory (both temperature and microstructure)."""
+        print(f"\nPre-loading {len(self)} samples (temperature + microstructure)...")
+
+        # Pre-load both datasets
+        print("  Loading temperature data...")
+        self.temp_dataset._preload_all_data()
+
+        print("  Loading microstructure data...")
+        self.micro_dataset._preload_all_data()
+
+        # Combine into unified samples
+        print("  Combining temperature and microstructure...")
+        self._preloaded_data = {}
+
+        try:
+            from tqdm import tqdm
+            iterator = tqdm(range(len(self)), desc="Combining data", unit="sample")
+        except ImportError:
+            iterator = range(len(self))
+
+        for idx in iterator:
+            temp_sample = self.temp_dataset._preloaded_data[idx]
+            micro_sample = self.micro_dataset._preloaded_data[idx]
+
+            # Combine into unified sample
+            self._preloaded_data[idx] = {
+                'context_temp': temp_sample['context'],       # [seq_len, 1, H, W]
+                'context_micro': micro_sample['context'],     # [seq_len, 9, H, W]
+                'future_temp': temp_sample['target'],         # [1, H, W]
+                'target_micro': micro_sample['target'],       # [9, H, W]
+                'target_mask': micro_sample['target_mask'],   # [H, W]
+                'slice_coord': temp_sample['slice_coord'],
+                'timestep_start': temp_sample['timestep_start'],
+                'context_timesteps': temp_sample['context_timesteps'],
+                'target_timestep': temp_sample['target_timestep'],
+            }
+
+        # Calculate memory usage
+        sample_memory = sum(
+            v.element_size() * v.nelement()
+            for v in self._preloaded_data[0].values()
+            if isinstance(v, torch.Tensor)
+        )
+        total_memory_mb = (sample_memory * len(self)) / (1024 ** 2)
+
+        print(f"  Pre-loading complete")
+        print(f"  Total samples: {len(self)}")
+        print(f"  Memory used: ~{total_memory_mb:.1f} MB")
+        print()
+
+    def __len__(self) -> int:
+        return len(self.temp_dataset)
+
+    def __getitem__(self, idx: int) -> Dict[str, torch.Any]:
+        """
+        Get combined temperature + microstructure sample.
+
+        Returns context (temp + micro), future temperature, and target microstructure.
+        """
+        if idx < 0 or idx >= len(self):
+            raise IndexError(f"Index {idx} out of range [0, {len(self)})")
+
+        # Return from pre-loaded cache if available
+        if self._preloaded_data is not None:
+            return self._preloaded_data[idx]
+
+        # Fall back to on-demand loading
+        temp_sample = self.temp_dataset[idx]
+        micro_sample = self.micro_dataset[idx]
+
+        return {
+            'context_temp': temp_sample['context'],       # [seq_len, 1, H, W]
+            'context_micro': micro_sample['context'],     # [seq_len, 9, H, W]
+            'future_temp': temp_sample['target'],         # [1, H, W]
+            'target_micro': micro_sample['target'],       # [9, H, W]
+            'target_mask': micro_sample['target_mask'],   # [H, W]
+            'slice_coord': temp_sample['slice_coord'],
+            'timestep_start': temp_sample['timestep_start'],
+            'context_timesteps': temp_sample['context_timesteps'],
+            'target_timestep': temp_sample['target_timestep'],
+        }
+
+
+__all__ = [
+    "PointCloudDataset",
+    "TemperatureSequenceDataset",
+    "SliceSequenceDataset",
+    "MicrostructureSequenceDataset",
+    "FieldType",
+    "PlaneType",
+    "SplitType"
+]

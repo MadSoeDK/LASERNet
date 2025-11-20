@@ -266,6 +266,106 @@ def visualize_prediction(
         plt.show()
 
 
+def visualize_microstructure_prediction(
+    context_temp: torch.Tensor,
+    context_micro: torch.Tensor,
+    future_temp: torch.Tensor,
+    target_micro: torch.Tensor,
+    prediction_micro: torch.Tensor,
+    save_path: Optional[str] = None,
+    sample_idx: int = 0,
+) -> None:
+    """
+    Visualize microstructure prediction with temperature context.
+
+    Args:
+        context_temp: [B, seq_len, 1, H, W] - context temperature frames
+        context_micro: [B, seq_len, 9, H, W] - context microstructure frames
+        future_temp: [B, 1, H, W] - next temperature frame
+        target_micro: [B, 9, H, W] - ground truth microstructure
+        prediction_micro: [B, 9, H, W] - predicted microstructure
+        save_path: Optional path to save figure
+        sample_idx: Which sample from batch to visualize
+    """
+    batch_size, seq_len = context_temp.shape[:2]
+
+    # Get data from batch
+    ctx_temp = context_temp[sample_idx].cpu().numpy()  # [seq_len, 1, H, W]
+    ctx_micro = context_micro[sample_idx].cpu().numpy()  # [seq_len, 9, H, W]
+    fut_temp = future_temp[sample_idx, 0].cpu().numpy()  # [H, W]
+    tgt_micro = target_micro[sample_idx].cpu().numpy()  # [9, H, W]
+    pred_micro = prediction_micro[sample_idx].cpu().numpy()  # [9, H, W]
+
+    # Create figure: 3 rows
+    # Row 1: Context temperature frames + future temp
+    # Row 2: Last context microstructure (IPF-X as RGB)
+    # Row 3: Target microstructure (IPF-X) vs Prediction (IPF-X)
+    num_cols = seq_len + 1
+    fig = plt.figure(figsize=(4 * num_cols, 12))
+
+    # Row 1: Temperature sequence
+    for t in range(seq_len):
+        ax = plt.subplot(3, num_cols, t + 1)
+        im = ax.imshow(ctx_temp[t, 0], cmap='hot', origin='lower')
+        ax.set_title(f'Context Temp {t+1}', fontweight='bold')
+        ax.axis('off')
+        plt.colorbar(im, ax=ax, fraction=0.046)
+
+    # Future temperature
+    ax = plt.subplot(3, num_cols, seq_len + 1)
+    im = ax.imshow(fut_temp, cmap='hot', origin='lower')
+    ax.set_title('Future Temp (Input)', fontweight='bold')
+    ax.axis('off')
+    plt.colorbar(im, ax=ax, fraction=0.046)
+
+    # Row 2: Last context microstructure (IPF-X as RGB)
+    last_ctx_ipf_x = ctx_micro[-1, 0:3]  # [3, H, W] - IPF-X channels
+    last_ctx_ipf_x = np.transpose(last_ctx_ipf_x, (1, 2, 0))  # [H, W, 3]
+    last_ctx_ipf_x = np.clip(last_ctx_ipf_x, 0, 1)  # Normalize if needed
+
+    ax = plt.subplot(3, num_cols, num_cols + 1)
+    ax.imshow(last_ctx_ipf_x, origin='lower')
+    ax.set_title('Last Context Micro (IPF-X)', fontweight='bold')
+    ax.axis('off')
+
+    # Row 3: Target vs Prediction (IPF-X as RGB)
+    tgt_ipf_x = tgt_micro[0:3]  # [3, H, W]
+    tgt_ipf_x = np.transpose(tgt_ipf_x, (1, 2, 0))  # [H, W, 3]
+    tgt_ipf_x = np.clip(tgt_ipf_x, 0, 1)
+
+    pred_ipf_x = pred_micro[0:3]  # [3, H, W]
+    pred_ipf_x = np.transpose(pred_ipf_x, (1, 2, 0))  # [H, W, 3]
+    pred_ipf_x = np.clip(pred_ipf_x, 0, 1)
+
+    ax = plt.subplot(3, num_cols, 2 * num_cols + 1)
+    ax.imshow(tgt_ipf_x, origin='lower')
+    ax.set_title('Target Micro (IPF-X)', fontweight='bold')
+    ax.axis('off')
+
+    ax = plt.subplot(3, num_cols, 2 * num_cols + 2)
+    ax.imshow(pred_ipf_x, origin='lower')
+    ax.set_title('Predicted Micro (IPF-X)', fontweight='bold')
+    ax.axis('off')
+
+    # Difference map
+    diff = np.abs(tgt_ipf_x - pred_ipf_x).mean(axis=2)  # [H, W]
+    ax = plt.subplot(3, num_cols, 2 * num_cols + 3)
+    im = ax.imshow(diff, cmap='RdYlGn_r', origin='lower')
+    ax.set_title('Absolute Difference', fontweight='bold')
+    ax.axis('off')
+    plt.colorbar(im, ax=ax, fraction=0.046)
+
+    plt.tight_layout()
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved microstructure visualization to {save_path}")
+        plt.close()
+    else:
+        plt.show()
+
+
 def create_training_report(
     model,
     sample_input: torch.Tensor,
