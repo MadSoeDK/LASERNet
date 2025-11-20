@@ -1,17 +1,16 @@
-from lasernet.model.CNN_LSTM import CNN_LSTM
-from dataset.dataloader import get_dataloaders
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import sys, os
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(ROOT)
+print("PYTHONPATH added:", ROOT)
 
-from model.CNN_LSTM import CNN_LSTM
-#from dataset.dataloader import get_dataloaders
+from lasernet.model.CNN_LSTM import CNN_LSTM
+from src.dataset_images.dataloader import get_image_dataloaders
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from dataset_images.dataloader import get_image_dataloaders
 
-root_dir = "/Users/eva/Documents/DataSpatiotemporal/"
+root_dir = "/zhome/ef/5/219124/LASERNet/DataSpatiotemporal/"
 
 # Device setup
 if torch.cuda.is_available():
@@ -50,6 +49,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
 
         pred = model(seq)                        # [batch, 4096]
+        pred = pred.view(pred.size(0), -1)       # [B, 4096]
         target_latent = model.encode_frame(target)  # [batch, 4096]
 
         loss = criterion(pred, target_latent)
@@ -69,6 +69,7 @@ for epoch in range(num_epochs):
             target = target.float().to(device)
 
             pred = model(seq)
+            pred = pred.view(pred.size(0), -1)       # [B, 4096]
             target_latent = model.encode_frame(target)
 
             loss = criterion(pred, target_latent)

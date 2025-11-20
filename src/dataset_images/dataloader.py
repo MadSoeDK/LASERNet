@@ -50,6 +50,7 @@ class Temperature(Dataset):
         seq_frames = []
         for p in seq_paths:
             img = Image.open(p).convert("L")
+            img = img.resize((512, 256))
             arr = np.array(img, dtype=np.float32) / 255.0
             tensor = torch.from_numpy(arr).unsqueeze(0)  # [1, H, W]
             seq_frames.append(tensor)
@@ -57,6 +58,7 @@ class Temperature(Dataset):
         seq_tensor = torch.stack(seq_frames, dim=0)  # [seq_len, 1, H, W]
 
         target_img = Image.open(target_path).convert("L")
+        target_img = target_img.resize(512, 256)
         target_arr = np.array(target_img, dtype=np.float32) / 255.0
         target_tensor = torch.from_numpy(target_arr).unsqueeze(0)
 
@@ -81,7 +83,7 @@ def get_image_dataloaders(root_dir, seq_length=5, batch_size=2):
 
 
 # TEST
-path_to_file = "/Users/eva/Documents/DataSpatiotemporal/"
+#path_to_file = "/Users/eva/Documents/DataSpatiotemporal/"
 
 #train_loader, val_loader, test_loader = get_image_dataloaders(root_dir=path_to_file,seq_length=5, batch_size=2,)
 """
