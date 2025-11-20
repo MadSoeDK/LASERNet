@@ -1,16 +1,16 @@
 #!/bin/bash
-#BSUB -J lasernet-microstructure
+#BSUB -J micro-net
 #BSUB -q gpua100
 #BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
-#BSUB -W 04:00
+#BSUB -W 15:00
 #BSUB -R "span[hosts=1]"
 #BSUB -R "rusage[mem=64GB]"
-##BSUB -u s215805@dtu.dk
+##BSUB -u s211548@dtu.dk
 #BSUB -B
 #BSUB -N
-#BSUB -o logs/lasernet_micro_%J.out
-#BSUB -e logs/lasernet_micro_%J.err
+#BSUB -o logs/micro-net_%J.out
+#BSUB -e logs/micro-net_%J.err
 
 # Load modules
 module load python3/3.12.0

@@ -60,46 +60,6 @@ test-micro:
 
 # ==================== INTERACTIVE GPU TESTING ====================
 
-test-volta:
-	@echo "========================================================================"
-	@echo "Testing microstructure model on Volta V100 GPU"
-	@echo "========================================================================"
-	@echo ""
-	@echo "This will:"
-	@echo "  1. Request an interactive shell on voltash (2x V100 16GB)"
-	@echo "  2. Load CUDA module and find free GPU"
-	@echo "  3. Activate the virtual environment"
-	@echo "  4. Run the test script"
-	@echo ""
-	@echo "Press Ctrl+C to cancel, or Enter to continue..."
-	@read dummy; \
-	voltash -c "cd $(PWD) && \
-		module load cuda/12.4 && \
-		export CUDA_VISIBLE_DEVICES=\$$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | sort -k2 -n | head -1 | cut -d',' -f1) && \
-		echo 'Using GPU: '\$$CUDA_VISIBLE_DEVICES && \
-		source .venv/bin/activate && \
-		python test_microstructure.py"
-
-test-sxm2:
-	@echo "========================================================================"
-	@echo "Testing microstructure model on Volta V100-SXM2 GPU"
-	@echo "========================================================================"
-	@echo ""
-	@echo "This will:"
-	@echo "  1. Request an interactive shell on sxm2sh (4x V100 32GB)"
-	@echo "  2. Load CUDA module and find free GPU"
-	@echo "  3. Activate the virtual environment"
-	@echo "  4. Run the test script"
-	@echo ""
-	@echo "Press Ctrl+C to cancel, or Enter to continue..."
-	@read dummy; \
-	sxm2sh -c "cd $(PWD) && \
-		module load cuda/12.4 && \
-		export CUDA_VISIBLE_DEVICES=\$$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | sort -k2 -n | head -1 | cut -d',' -f1) && \
-		echo 'Using GPU: '\$$CUDA_VISIBLE_DEVICES && \
-		source .venv/bin/activate && \
-		python test_microstructure.py"
-
 test-a100:
 	@echo "========================================================================"
 	@echo "Testing microstructure model on A100 GPU"
