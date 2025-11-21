@@ -1,13 +1,14 @@
 #!/bin/bash
 #BSUB -J lasernet
-#BSUB -q gpua100
+#BSUB -q gpua40
 #BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -W 02:00
-#BSUB -R "rusage[mem=64GB]"
-##BSUB -u s215805@dtu.dk
+#BSUB -R "rusage[mem=16GB]"
 #BSUB -B 
 #BSUB -N
+#BSUB -u s250062@dtu.dk
+#BSUB -R "span[hosts=1]"
 #BSUB -o logs/lasernet_%J.out
 #BSUB -e logs/lasernet_%J.err
 
@@ -22,4 +23,4 @@ mkdir -p logs
 source .venv/bin/activate
 
 # Run the script
-python train.py
+python train.py --note "added droput 0.3 to every layer"

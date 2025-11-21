@@ -22,13 +22,15 @@ def train_tempnet(
     val_loader: DataLoader,
     optimizer: optim.Optimizer,
     criterion: nn.Module,
+    mae_fn: nn.Module,
     device: torch.device,
     epochs: int,
     run_dir: Path,
     visualize_every: int = 5,
+    note: str = ""
 ) -> Dict[str, list[float]]:
 
-    history: Dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+    history: Dict[str, list[float]] = {"train_loss": [], "val_loss": [], "train_mae": [], "val_mae": [] }
     best_val_loss = float('inf')
 
     for epoch in range(epochs):
@@ -36,6 +38,7 @@ def train_tempnet(
         model.train()
         train_loss = 0.0
         num_train_samples = 0
+        train_mae = 0.0
 
         # Training loop with progress bar
         train_pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]", leave=False)
@@ -50,24 +53,31 @@ def train_tempnet(
             # Only compute loss on valid pixels
             mask_expanded = target_mask.unsqueeze(1)  # [B, 1, H, W]
             loss = criterion(pred[mask_expanded], target[mask_expanded])
+            mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
+
 
             loss.backward()
             optimizer.step()
 
             batch_size = context.size(0)
             train_loss += loss.item() * batch_size
+            train_mae += mae * batch_size
             num_train_samples += batch_size
 
             # Update progress bar with current loss
             train_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
         avg_train_loss = train_loss / max(1, num_train_samples)
+        avg_train_mae = train_mae / max(1, num_train_samples)
+        history["train_mae"].append(avg_train_mae)
+
         history["train_loss"].append(avg_train_loss)
 
         # Validation
         model.eval()
         val_loss = 0.0
         num_val_samples = 0
+        val_mae = 0.0
 
         with torch.no_grad():
             val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{epochs} [Val]", leave=False)
@@ -80,29 +90,50 @@ def train_tempnet(
 
                 mask_expanded = target_mask.unsqueeze(1)
                 loss = criterion(pred[mask_expanded], target[mask_expanded])
+                mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
+
 
                 batch_size = context.size(0)
                 val_loss += loss.item() * batch_size
+                val_mae += mae * batch_size
                 num_val_samples += batch_size
 
                 val_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
         avg_val_loss = val_loss / max(1, num_val_samples)
+        avg_val_mae = val_mae / max(1, num_val_samples)
+        history["val_mae"].append(avg_val_mae)
+
         history["val_loss"].append(avg_val_loss)
 
         print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.4f}, val loss={avg_val_loss:.4f}")
+        print(f"                 train MAE={avg_train_mae:.2f}, val MAE={avg_val_mae:.2f}")
+
 
         # Save best model checkpoint
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
+            best_val_mae = avg_val_mae
+
             torch.save({
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'train_loss': avg_train_loss,
                 'val_loss': avg_val_loss,
+                'train_mae': avg_train_mae,
+                'val_mae': avg_val_mae,
             }, run_dir / "checkpoints" / "best_model.pt")
-            print(f"  → Best model saved (val loss: {avg_val_loss:.4f})")
+            print(f"  → Best model saved (val loss: {avg_val_loss:.4f}, val MAE: {avg_val_mae:.2f})")
+            #print(f"  → Best model saved (val loss: {avg_val_loss:.4f})")
+
+            with open(run_dir / "best_summary.txt", "w") as f:
+                f.write(f"NOTE:\n{note}\n\n")
+                f.write(f"Best epoch: {epoch + 1}\n")
+                f.write(f"Val Loss (MSE): {avg_val_loss:.4f}\n")
+                f.write(f"Val MAE:        {avg_val_mae:.2f}\n")
+                f.write(f"Train Loss:     {avg_train_loss:.4f}\n")
+                f.write(f"Train MAE:      {avg_train_mae:.2f}\n")
 
         # Visualize activations periodically
         if visualize_every > 0 and (epoch + 1) % visualize_every == 0:
@@ -234,6 +265,7 @@ def main() -> None:
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
     parser.add_argument("--split-ratio", type=str, default="10,6,8", help="Train/Val/Test split ratio")
     parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames in input sequence")
+    parser.add_argument("--note", type=str, default="", help="Short note describing this run")
     args = parser.parse_args()
     device = get_device()
 
@@ -265,7 +297,7 @@ def main() -> None:
     print(f"  Visualize:     Every {args.visualize_every} epochs" if args.visualize_every > 0 else "  Visualize:     Disabled")
     print()
 
-    # Create model
+    # Create model, change parameters for experimenting
     model = CNN_LSTM().to(device)
 
     # Print model info
@@ -397,6 +429,9 @@ def main() -> None:
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
 
+    #added this to see the temp difference
+    mae_fn = nn.L1Loss()
+
     # Train
     history = train_tempnet(
         model=model,
@@ -404,10 +439,12 @@ def main() -> None:
         val_loader=val_loader,
         optimizer=optimizer,
         criterion=criterion,
+        mae_fn=mae_fn,
         device=device,
         epochs=args.epochs,
         run_dir=run_dir,
         visualize_every=args.visualize_every,
+        note=args.note,
     )
 
     print()

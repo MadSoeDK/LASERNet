@@ -29,7 +29,7 @@ class ConvLSTMCell(nn.Module):
     def forward(self, x, hidden_state):
         """
         Args:
-            x: [B, input_dim, H, W]
+            x: [B, input_dim, H, W] #one frame of features, instead of 1D vectors 
             hidden_state: tuple of (h, c) each [B, hidden_dim, H, W]
         Returns:
             h_next, c_next: next hidden and cell states
@@ -175,7 +175,7 @@ class CNN_LSTM(nn.Module):
         block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True), nn.Dropout(0.3),
         )
 
         # Register hook to capture activations
