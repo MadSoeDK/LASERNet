@@ -1,5 +1,5 @@
 #!/bin/bash
-#BSUB -J micro-net
+#BSUB -J micro-net-predrnn
 #BSUB -q gpua100
 #BSUB -n 8
 #BSUB -gpu "num=1:mode=exclusive_process"
@@ -9,8 +9,8 @@
 ##BSUB -u s211548@dtu.dk
 #BSUB -B
 #BSUB -N
-#BSUB -o logs/micro-net_%J.out
-#BSUB -e logs/micro-net_%J.err
+#BSUB -o logs/micro-predrnn_%J.out
+#BSUB -e logs/micro-predrnn_%J.err
 
 # Load modules
 module load python3/3.12.0
@@ -22,11 +22,12 @@ mkdir -p logs
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run the microstructure training script
-python train_microstructure.py \
-  --epochs 100 \
+# Run the microstructure PredRNN training script with early stopping
+python train_micro_net_predrnn.py \
+  --epochs 200 \
   --batch-size 16 \
   --lr 1e-3 \
   --seq-length 3 \
   --plane xz \
+  --rnn-layers 4 \
   --split-ratio "12,6,6"

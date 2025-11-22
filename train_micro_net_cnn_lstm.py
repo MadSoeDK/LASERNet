@@ -26,11 +26,13 @@ def train_microstructure(
     device: torch.device,
     epochs: int,
     run_dir: Path,
+    patience: int = 15,
 ) -> Dict[str, list[float]]:
-    """Training loop for microstructure prediction."""
+    """Training loop for microstructure prediction with early stopping."""
 
     history: Dict[str, list[float]] = {"train_loss": [], "val_loss": []}
     best_val_loss = float('inf')
+    epochs_without_improvement = 0
 
     for epoch in range(epochs):
         # ==================== TRAINING ====================
@@ -103,9 +105,10 @@ def train_microstructure(
 
         print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.6f}, val loss={avg_val_loss:.6f}")
 
-        # Save best model
+        # Save best model and early stopping check
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
+            epochs_without_improvement = 0
             torch.save({
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
@@ -114,6 +117,15 @@ def train_microstructure(
                 'val_loss': avg_val_loss,
             }, run_dir / "checkpoints" / "best_model.pt")
             print(f"  → Best model saved (val loss: {avg_val_loss:.6f})")
+        else:
+            epochs_without_improvement += 1
+            print(f"  → No improvement for {epochs_without_improvement} epoch(s)")
+
+        # Early stopping
+        if epochs_without_improvement >= patience:
+            print(f"\nEarly stopping triggered after {epoch + 1} epochs")
+            print(f"Best validation loss: {best_val_loss:.6f}")
+            break
 
     return history
 

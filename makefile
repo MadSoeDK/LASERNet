@@ -1,7 +1,7 @@
 # LASERNet Makefile
 # Commands for training, testing, and running on HPC interactive nodes
 
-.PHONY: help train train-micro test test-micro test-volta test-sxm2 test-a100 submit submit-micro clean
+.PHONY: help train train-micro-net-cnn-lstm test test-micro test-volta test-sxm2 test-a100 submit submit-micro clean
 
 init:
 	@command -v uv >/dev/null 2>&1 || (echo "uv not found, installing..." && curl -LsSf https://astral.sh/uv/install.sh | sh)
@@ -14,17 +14,13 @@ help:
 	@echo ""
 	@echo "Training (batch submission):"
 	@echo "  make train          - Submit temperature prediction job to HPC"
-	@echo "  make train-micro    - Submit microstructure prediction job to HPC"
+	@echo "  make train-micro-net-cnn-lstm    - Submit microstructure prediction job to HPC"
 	@echo ""
 	@echo "Testing (local/interactive):"
 	@echo "  make test-micro     - Run quick test of microstructure model (CPU)"
 	@echo ""
 	@echo "Interactive GPU testing:"
 	@echo "  make test-a100      - Test on A100 GPU (a100sh)"
-	@echo ""
-	@echo "Aliases:"
-	@echo "  make submit         - Same as 'make train'"
-	@echo "  make submit-micro   - Same as 'make train-micro'"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean          - Remove logs, runs, and cache files"
@@ -36,14 +32,15 @@ train:
 	bsub < batch/scripts/train.sh
 	@echo "Job submitted. Check status with: bjobs"
 
-train-micro:
+train-micro-net-cnn-lstm:
 	@echo "Submitting microstructure prediction job to HPC..."
-	bsub < batch/scripts/train_microstructure.sh
+	bsub < batch/scripts/train_micro_net_cnn_lstm.sh
 	@echo "Job submitted. Check status with: bjobs"
 
-submit: train
-
-submit-micro: train-micro
+train-micro-net-predrnn:
+	@echo "Submitting microstructure prediction job to HPC..."
+	bsub < batch/scripts/train_micro_net_predrnn.sh
+	@echo "Job submitted. Check status with: bjobs"
 
 # ==================== LOCAL TESTING (CPU) ====================
 
