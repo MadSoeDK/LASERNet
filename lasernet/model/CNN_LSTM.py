@@ -126,7 +126,7 @@ class CNN_LSTM(nn.Module):
         lstm_hidden: int = 64,
         lstm_layers: int = 1,
         temp_min: float = 300.0,  # Room temperature baseline
-        temp_max: float = 4500.0,  # Max expected temperature. TODO: calculate from data
+        temp_max: float = 4652.0498046875,  # Max expected temperature. calculated from data 
     ):
         super().__init__()
 
@@ -154,15 +154,19 @@ class CNN_LSTM(nn.Module):
             num_layers=lstm_layers
         )
 
+        #added skip connections!
         # Decoder: 3 upsampling blocks
+        # d3 receives: up(lstm_out) + e3  → channels: 64 + 64 = 128
         self.up3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec3 = self._conv_block(lstm_hidden, hidden_channels[1], name="dec3")
+        self.dec3 = self._conv_block(lstm_hidden + hidden_channels[2], hidden_channels[1], name="dec3")
 
+        # d2 receives: up(d3) + e2 → channels: 32 + 32 = 64
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec2 = self._conv_block(hidden_channels[1], hidden_channels[0], name="dec2")
+        self.dec2 = self._conv_block(hidden_channels[1]+ hidden_channels[1], hidden_channels[0], name="dec2")
 
+        # d1 receives: up(d2) + e1 → channels: 16 + 16 = 32
         self.up1 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec1 = self._conv_block(hidden_channels[0], hidden_channels[0], name="dec1")
+        self.dec1 = self._conv_block(hidden_channels[0]+ hidden_channels[0], hidden_channels[0], name="dec1")
 
         # Final output layer
         self.final = nn.Conv2d(hidden_channels[0], 1, kernel_size=1)
@@ -175,8 +179,7 @@ class CNN_LSTM(nn.Module):
         block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True), nn.Dropout(0.3),
-        )
+            nn.ReLU(inplace=True),)
 
         # Register hook to capture activations
         def hook(module, input, output):
@@ -206,6 +209,11 @@ class CNN_LSTM(nn.Module):
         # Clear previous activations
         self.activations.clear()
 
+        # ----- Encode -----
+        skip_e1 = []
+        skip_e2 = []
+        skip_e3 = []
+
         # Encode each frame in the sequence
         encoded_frames = []
         for t in range(seq_len):
@@ -220,8 +228,12 @@ class CNN_LSTM(nn.Module):
 
             e3 = self.enc3(p2)         # [B, 64, H/4, W/4]
             p3 = self.pool(e3)         # [B, 64, H/8, W/8]
+            #p3 = e3 #tried to remove pooling
 
             encoded_frames.append(p3)
+            skip_e1.append(e1)
+            skip_e2.append(e2)
+            skip_e3.append(e3)
 
         # Stack encoded frames: [B, seq_len, 64, H/8, W/8]
         encoded_seq = torch.stack(encoded_frames, dim=1)
@@ -229,14 +241,25 @@ class CNN_LSTM(nn.Module):
         # Apply ConvLSTM for temporal modeling
         lstm_out = self.conv_lstm(encoded_seq)  # [B, 64, H/8, W/8]
 
-        # Decoder path
-        d3 = self.up3(lstm_out)    # [B, 64, H/4, W/4]
+        # Use only last frame skip features
+        e1 = skip_e1[-1]
+        e2 = skip_e2[-1]
+        e3 = skip_e3[-1]
+
+        # Decoder path with skip connections
+        #d3 = self.up3(lstm_out)    # [B, 64, H/4, W/4]
+        d3 = nn.functional.interpolate(lstm_out,size=e3.shape[-2:],mode="bilinear",align_corners=False)
+        d3 = torch.cat([d3, e3], dim=1)
         d3 = self.dec3(d3)         # [B, 32, H/4, W/4]
 
-        d2 = self.up2(d3)          # [B, 32, H/2, W/2]
+        #d2 = self.up2(d3)          # [B, 32, H/2, W/2]
+        d2 = nn.functional.interpolate(d3,size=e2.shape[-2:],mode="bilinear", align_corners=False)
+        d2 = torch.cat([d2, e2], dim=1)
         d2 = self.dec2(d2)         # [B, 16, H/2, W/2]
 
-        d1 = self.up1(d2)          # [B, 16, H, W]
+        #d1 = self.up1(d2)          # [B, 16, H, W]
+        d1 = nn.functional.interpolate(d2, size=e1.shape[-2:],mode="bilinear",align_corners=False,)
+        d1 = torch.cat([d1, e1], dim=1)
         d1 = self.dec1(d1)         # [B, 16, H, W]
 
         # Final prediction (normalized [0, 1])
