@@ -1,7 +1,7 @@
 #!/bin/bash
-#BSUB -J micro-net-cnn-lstm
+#BSUB -J micro-net-cnn-lstm-8h-4c
 #BSUB -q gpua100
-#BSUB -n 8
+#BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -W 23:00
 #BSUB -R "span[hosts=1]"
