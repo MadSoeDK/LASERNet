@@ -16,11 +16,13 @@ import torch
 
 from lasernet.dataset.loading import PointCloudDataset
 from lasernet.model.MicrostructureCNN_LSTM import MicrostructureCNN_LSTM
+from lasernet.model.MicrostructurePredRNN import MicrostructurePredRNN
 
 
-def load_model(checkpoint_path: str, device: str = 'cuda') -> MicrostructureCNN_LSTM:
+def load_model(checkpoint_path: str, device: str = 'cuda'):
     """
     Load trained model from checkpoint.
+    Automatically detects whether it's a CNN_LSTM or PredRNN model.
 
     Args:
         checkpoint_path: Path to model checkpoint (.pt file)
@@ -35,15 +37,29 @@ def load_model(checkpoint_path: str, device: str = 'cuda') -> MicrostructureCNN_
     print(f"Loading checkpoint from: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device)
 
-    # Create model
-    model = MicrostructureCNN_LSTM(
-        input_channels=10,    # 1 temp + 9 micro
-        future_channels=1,    # 1 temp
-        output_channels=9     # 9 micro (IPF only)
-    )
+    # Detect model type by checking keys in state_dict
+    state_dict = checkpoint['model_state_dict']
+
+    # PredRNN has 'pred_rnn' keys, CNN_LSTM has 'conv_lstm' keys
+    is_predrnn = any('pred_rnn' in key for key in state_dict.keys())
+
+    if is_predrnn:
+        print("Detected PredRNN model architecture")
+        model = MicrostructurePredRNN(
+            input_channels=10,    # 1 temp + 9 micro
+            future_channels=1,    # 1 temp
+            output_channels=9     # 9 micro (IPF only)
+        )
+    else:
+        print("Detected CNN_LSTM model architecture")
+        model = MicrostructureCNN_LSTM(
+            input_channels=10,    # 1 temp + 9 micro
+            future_channels=1,    # 1 temp
+            output_channels=9     # 9 micro (IPF only)
+        )
 
     # Load state dict
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
 
