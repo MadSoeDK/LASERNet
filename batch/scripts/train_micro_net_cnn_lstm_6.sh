@@ -1,5 +1,5 @@
 #!/bin/bash
-#BSUB -J micro-net-3
+#BSUB -J micro-net-6
 #BSUB -q gpua100
 #BSUB -n 4
 #BSUB -gpu "num=1:mode=exclusive_process"
@@ -9,8 +9,8 @@
 ##BSUB -u s211548@dtu.dk
 #BSUB -B
 #BSUB -N
-#BSUB -o logs/micro-net_%J.out
-#BSUB -e logs/micro-net_%J.err
+#BSUB -o logs/micro-net_6_%J.out
+#BSUB -e logs/micro-net_6_%J.err
 
 # Load modules
 module load python3/3.12.0
@@ -30,4 +30,5 @@ python train_micro_net_cnn_lstm.py \
   --seq-length 5 \
   --plane xz \
   --split-ratio "12,6,6" \
-  --use-weighted-loss --loss-type combined
+  --use-weighted-loss \
+  --loss-type combined
