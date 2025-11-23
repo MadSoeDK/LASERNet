@@ -151,23 +151,32 @@ def visualize_all_predictions_middle_slice(
     all_datasets = []
 
     for split in splits:
-        dataset = MicrostructureSequenceDataset(
-            plane=plane,
-            split=split,
-            sequence_length=3,
-            target_offset=1,
-            preload=True
-        )
-        all_datasets.append(dataset)
-        print(f"  {split}: {len(dataset)} samples")
+        try:
+            dataset = MicrostructureSequenceDataset(
+                plane=plane,
+                split=split,
+                sequence_length=3,
+                target_offset=1,
+                train_ratio=0.5,
+                val_ratio=0.25,
+                test_ratio=0.25,
+                preload=True
+            )
+            all_datasets.append(dataset)
+            print(f"  {split}: {len(dataset)} samples")
+        except ValueError as e:
+            print(f"  {split}: Skipped ({e})")
+            all_datasets.append(None)
 
-    # Get the actual slice coordinate from the first dataset
-    # The dataset has samples organized as: num_timesteps * num_slices
-    # We need to find what slice coordinate corresponds to slice_index
-    first_sample = all_datasets[0][0]
+    # Get the actual slice coordinate from the first non-None dataset
+    first_dataset = next((ds for ds in all_datasets if ds is not None), None)
+
+    if first_dataset is None:
+        print("ERROR: No datasets could be loaded!")
+        return
 
     # Get the slice coordinate metadata from the base dataset
-    temp_base = all_datasets[0].temp_dataset.base_dataset
+    temp_base = first_dataset.temp_dataset.base_dataset
     slice_coords = temp_base.axis_values[temp_base.fixed_axis]
 
     if slice_index >= len(slice_coords):
@@ -184,6 +193,10 @@ def visualize_all_predictions_middle_slice(
     with torch.no_grad():
         for split_idx, split_name in enumerate(splits):
             dataset = all_datasets[split_idx]
+
+            if dataset is None:
+                print(f"\nSkipping {split_name} split (not enough data)")
+                continue
 
             print(f"\nProcessing {split_name} split...")
 

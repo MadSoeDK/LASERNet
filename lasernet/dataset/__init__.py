@@ -10,11 +10,16 @@ from lasernet.dataset.loading import (
     TemperatureSequenceDataset,
 )
 
+from lasernet.dataset.fast_loading import (
+    FastMicrostructureSequenceDataset,
+)
+
 __all__ = [
     "PointCloudDataset",
     "TemperatureSequenceDataset",
     "SliceSequenceDataset",
     "MicrostructureSequenceDataset",
+    "FastMicrostructureSequenceDataset",
     "FieldType",
     "PlaneType",
     "SplitType",

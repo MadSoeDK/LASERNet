@@ -1,0 +1,360 @@
+(lasernet) bash-5.1$ python train_micro_net_predrnn.py \
+  --use-weighted-loss \
+  --loss-type combined
+Using GPU
+======================================================================
+LASERNet Microstructure Prediction Training (PredRNN)
+======================================================================
+Run directory: runs_microstructure_predrnn/2025-11-22_14-58-07
+
+Configuration:
+  Epochs:        100
+  Batch size:    16
+  Learning rate: 0.001
+  Sequence len:  3
+  RNN layers:    4
+  Plane:         xz
+  Device:        cuda
+
+Model: MicrostructurePredRNN
+  Total parameters: 2,357,609
+  Memory (FP32):    ~9.0 MB
+
+Loading datasets...
+
+Pre-loading 752 samples (temperature + microstructure)...
+  Loading temperature data...
+
+Pre-loading 752 samples into memory...
+  Optimized strategy: Reading each timestep file only once...
+  Step 1/2: Loading all timesteps and slices from CSV files...
+Reading CSV files: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 11/11 [05:26<00:00, 29.68s/file]
+  Step 2/2: Assembling 752 training sequences...
+Building sequences: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 752/752 [00:00<00:00, 3886.31sample/s]
+  Pre-loading complete
+  Total samples: 752
+  Memory used: ~313.5 MB
+
+  Loading microstructure data...
+
+Pre-loading 752 samples into memory...
+  Optimized strategy: Reading each timestep file only once...
+  Step 1/2: Loading all timesteps and slices from CSV files...
+Reading CSV files: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 11/11 [06:06<00:00, 33.33s/file]
+  Step 2/2: Assembling 752 training sequences...
+Building sequences: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 752/752 [00:01<00:00, 563.50sample/s]
+  Pre-loading complete
+  Total samples: 752
+  Memory used: ~2570.5 MB
+
+  Combining temperature and microstructure...
+Combining data: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 752/752 [00:00<00:00, 117096.70sample/s]
+  Pre-loading complete
+  Total samples: 752
+  Memory used: ~2523.5 MB
+
+
+Pre-loading 188 samples (temperature + microstructure)...
+  Loading temperature data...
+
+Pre-loading 188 samples into memory...
+  Optimized strategy: Reading each timestep file only once...
+  Step 1/2: Loading all timesteps and slices from CSV files...
+Reading CSV files: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [02:26<00:00, Reading CSV files: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [02:26<00:00, 29.29s/file]
+  Step 2/2: Assembling 188 training sequences...
+Building sequences: 100%|██████████████████████████████████████████████████████████████████| 188/188 [00:00<00:00, 4690.47sample/s]
+  Pre-loading complete
+  Total samples: 188
+  Memory used: ~78.4 MB
+
+  Loading microstructure data...
+
+Pre-loading 188 samples into memory...
+  Optimized strategy: Reading each timestep file only once...
+  Step 1/2: Loading all timesteps and slices from CSV files...
+Reading CSV files: 100%|███████████████████████████████████████████████████████████████████████████| 5/5 [02:44<00:00, 32.83s/file]
+  Step 2/2: Assembling 188 training sequences...
+Building sequences: 100%|███████████████████████████████████████████████████████████████████| 188/188 [00:00<00:00, 510.39sample/s]
+  Pre-loading complete
+  Total samples: 188
+  Memory used: ~642.6 MB
+
+  Combining temperature and microstructure...
+Combining data: 100%|████████████████████████████████████████████████████████████████████| 188/188 [00:00<00:00, 113392.17sample/s]
+  Pre-loading complete
+  Total samples: 188
+  Memory used: ~630.9 MB
+
+
+Pre-loading 188 samples (temperature + microstructure)...
+  Loading temperature data...
+
+Pre-loading 188 samples into memory...
+  Optimized strategy: Reading each timestep file only once...
+  Step 1/2: Loading all timesteps and slices from CSV files...
+Reading CSV files: 100%|███████████████████████████████████████████████████████████████████████████| 5/5 [02:25<00:00, 29.12s/file]
+  Step 2/2: Assembling 188 training sequences...
+Building sequences: 100%|██████████████████████████████████████████████████████████████████| 188/188 [00:00<00:00, 5398.22sample/s]
+  Pre-loading complete
+  Total samples: 188
+  Memory used: ~78.4 MB
+
+  Loading microstructure data...
+
+Pre-loading 188 samples into memory...
+  Optimized strategy: Reading each timestep file only once...
+  Step 1/2: Loading all timesteps and slices from CSV files...
+Reading CSV files: 100%|███████████████████████████████████████████████████████████████████████████| 5/5 [02:46<00:00, 33.36s/file]
+  Step 2/2: Assembling 188 training sequences...
+Building sequences: 100%|███████████████████████████████████████████████████████████████████| 188/188 [00:00<00:00, 501.97sample/s]
+  Pre-loading complete
+  Total samples: 188
+  Memory used: ~642.6 MB
+
+  Combining temperature and microstructure...
+Combining data: 100%|████████████████████████████████████████████████████████████████████| 188/188 [00:00<00:00, 109184.32sample/s]
+  Pre-loading complete
+  Total samples: 188
+  Memory used: ~630.9 MB
+
+
+Dataset: MicrostructureSequenceDataset
+  Train samples: 752
+  Val samples:   188
+  Test samples:  188
+
+Sample dimensions:
+  Context temp:  torch.Size([3, 1, 47, 465])
+  Context micro: torch.Size([3, 9, 47, 465])
+  Future temp:   torch.Size([1, 47, 465])
+  Target micro:  torch.Size([9, 47, 465])
+======================================================================
+
+Saved configuration to runs_microstructure_predrnn/2025-11-22_14-58-07/config.json
+
+Loss function: CombinedLoss (70% solidification + 30% global MSE)
+  Solidus:      1400.0 K
+  Liquidus:     1500.0 K
+  Weight scale: 0.1
+  Base weight:  0.1
+
+Epoch 1/100: train loss=0.266641, val loss=0.165115
+  → Best model saved (val loss: 0.165115)
+Epoch 2/100: train loss=0.112731, val loss=0.097544
+  → Best model saved (val loss: 0.097544)
+Epoch 3/100: train loss=0.086394, val loss=0.087457
+  → Best model saved (val loss: 0.087457)
+Epoch 4/100: train loss=0.082706, val loss=0.082861
+  → Best model saved (val loss: 0.082861)
+Epoch 5/100: train loss=0.081978, val loss=0.090927
+  → No improvement for 1 epoch(s)
+Epoch 6/100: train loss=0.082063, val loss=0.083856
+  → No improvement for 2 epoch(s)
+Epoch 7/100: train loss=0.081052, val loss=0.081954
+  → Best model saved (val loss: 0.081954)
+Epoch 8/100: train loss=0.079535, val loss=0.082233
+  → No improvement for 1 epoch(s)
+Epoch 9/100: train loss=0.077039, val loss=0.075852
+  → Best model saved (val loss: 0.075852)
+Epoch 10/100: train loss=0.074932, val loss=0.079938
+  → No improvement for 1 epoch(s)
+Epoch 11/100: train loss=0.072471, val loss=0.073410
+  → Best model saved (val loss: 0.073410)
+Epoch 12/100: train loss=0.070807, val loss=0.072004
+  → Best model saved (val loss: 0.072004)
+Epoch 13/100: train loss=0.068958, val loss=0.068449
+  → Best model saved (val loss: 0.068449)
+Epoch 14/100: train loss=0.066617, val loss=0.066834
+  → Best model saved (val loss: 0.066834)
+Epoch 15/100: train loss=0.064505, val loss=0.068563
+  → No improvement for 1 epoch(s)
+Epoch 16/100: train loss=0.063420, val loss=0.063085
+  → Best model saved (val loss: 0.063085)
+Epoch 17/100: train loss=0.061827, val loss=0.062353
+  → Best model saved (val loss: 0.062353)
+Epoch 18/100: train loss=0.061343, val loss=0.064162
+  → No improvement for 1 epoch(s)
+Epoch 19/100: train loss=0.059825, val loss=0.060584
+  → Best model saved (val loss: 0.060584)
+Epoch 20/100: train loss=0.058156, val loss=0.058756
+  → Best model saved (val loss: 0.058756)
+Epoch 21/100: train loss=0.056105, val loss=0.057792
+  → Best model saved (val loss: 0.057792)
+Epoch 22/100: train loss=0.054258, val loss=0.056737
+  → Best model saved (val loss: 0.056737)
+Epoch 23/100: train loss=0.052491, val loss=0.053205
+  → Best model saved (val loss: 0.053205)
+Epoch 24/100: train loss=0.050864, val loss=0.051868
+  → Best model saved (val loss: 0.051868)
+Epoch 25/100: train loss=0.049813, val loss=0.052050
+  → No improvement for 1 epoch(s)
+Epoch 26/100: train loss=0.048177, val loss=0.049962
+  → Best model saved (val loss: 0.049962)
+Epoch 27/100: train loss=0.046959, val loss=0.049582
+  → Best model saved (val loss: 0.049582)
+Epoch 28/100: train loss=0.045931, val loss=0.048256
+  → Best model saved (val loss: 0.048256)
+Epoch 29/100: train loss=0.044519, val loss=0.047212
+  → Best model saved (val loss: 0.047212)
+Epoch 30/100: train loss=0.042909, val loss=0.046654
+  → Best model saved (val loss: 0.046654)
+Epoch 31/100: train loss=0.042117, val loss=0.043928
+  → Best model saved (val loss: 0.043928)
+Epoch 32/100: train loss=0.041239, val loss=0.043056
+  → Best model saved (val loss: 0.043056)
+Epoch 33/100: train loss=0.040186, val loss=0.041707
+  → Best model saved (val loss: 0.041707)
+Epoch 34/100: train loss=0.038711, val loss=0.042322
+  → No improvement for 1 epoch(s)
+Epoch 35/100: train loss=0.038153, val loss=0.040694
+  → Best model saved (val loss: 0.040694)
+Epoch 36/100: train loss=0.037320, val loss=0.040501
+  → Best model saved (val loss: 0.040501)
+Epoch 37/100: train loss=0.036736, val loss=0.039986
+  → Best model saved (val loss: 0.039986)
+Epoch 38/100: train loss=0.035674, val loss=0.040610
+  → No improvement for 1 epoch(s)
+Epoch 39/100: train loss=0.035278, val loss=0.037970
+  → Best model saved (val loss: 0.037970)
+Epoch 40/100: train loss=0.034279, val loss=0.039098
+  → No improvement for 1 epoch(s)
+Epoch 41/100: train loss=0.033628, val loss=0.038103
+  → No improvement for 2 epoch(s)
+Epoch 42/100: train loss=0.032950, val loss=0.036359
+  → Best model saved (val loss: 0.036359)
+Epoch 43/100: train loss=0.032644, val loss=0.037984
+  → No improvement for 1 epoch(s)
+Epoch 44/100: train loss=0.031893, val loss=0.035160
+  → Best model saved (val loss: 0.035160)
+Epoch 45/100: train loss=0.030980, val loss=0.035347
+  → No improvement for 1 epoch(s)
+Epoch 46/100: train loss=0.030816, val loss=0.034037
+  → Best model saved (val loss: 0.034037)
+Epoch 47/100: train loss=0.029512, val loss=0.034945
+  → No improvement for 1 epoch(s)
+Epoch 48/100: train loss=0.029693, val loss=0.033804
+  → Best model saved (val loss: 0.033804)
+Epoch 49/100: train loss=0.029075, val loss=0.032953
+  → Best model saved (val loss: 0.032953)
+Epoch 50/100: train loss=0.029237, val loss=0.033573
+  → No improvement for 1 epoch(s)
+Epoch 51/100: train loss=0.027823, val loss=0.033533
+  → No improvement for 2 epoch(s)
+Epoch 52/100: train loss=0.027923, val loss=0.031823
+  → Best model saved (val loss: 0.031823)
+Epoch 53/100: train loss=0.027317, val loss=0.031589
+  → Best model saved (val loss: 0.031589)
+Epoch 54/100: train loss=0.026934, val loss=0.032422
+  → No improvement for 1 epoch(s)
+Epoch 55/100: train loss=0.026535, val loss=0.031591
+  → No improvement for 2 epoch(s)
+Epoch 56/100: train loss=0.026378, val loss=0.031618
+  → No improvement for 3 epoch(s)
+Epoch 57/100: train loss=0.025780, val loss=0.030845
+  → Best model saved (val loss: 0.030845)
+Epoch 58/100: train loss=0.025526, val loss=0.030885
+  → No improvement for 1 epoch(s)
+Epoch 59/100: train loss=0.025686, val loss=0.030661
+  → Best model saved (val loss: 0.030661)
+Epoch 60/100: train loss=0.024934, val loss=0.030536
+  → Best model saved (val loss: 0.030536)
+Epoch 61/100: train loss=0.024564, val loss=0.030410
+  → Best model saved (val loss: 0.030410)
+Epoch 62/100: train loss=0.024326, val loss=0.030027
+  → Best model saved (val loss: 0.030027)
+Epoch 63/100: train loss=0.023863, val loss=0.029901
+  → Best model saved (val loss: 0.029901)
+Epoch 64/100: train loss=0.023706, val loss=0.029395
+  → Best model saved (val loss: 0.029395)
+Epoch 65/100: train loss=0.023168, val loss=0.028969
+  → Best model saved (val loss: 0.028969)
+Epoch 66/100: train loss=0.023366, val loss=0.029286
+  → No improvement for 1 epoch(s)
+Epoch 67/100: train loss=0.023195, val loss=0.028971
+  → No improvement for 2 epoch(s)
+Epoch 68/100: train loss=0.022778, val loss=0.028128
+  → Best model saved (val loss: 0.028128)
+Epoch 69/100: train loss=0.022345, val loss=0.029627
+  → No improvement for 1 epoch(s)
+Epoch 70/100: train loss=0.022197, val loss=0.028098
+  → Best model saved (val loss: 0.028098)
+Epoch 71/100: train loss=0.022103, val loss=0.028614
+  → No improvement for 1 epoch(s)
+Epoch 72/100: train loss=0.021788, val loss=0.028561
+  → No improvement for 2 epoch(s)
+Epoch 73/100: train loss=0.021602, val loss=0.028544
+  → No improvement for 3 epoch(s)
+Epoch 74/100: train loss=0.021712, val loss=0.028386
+  → No improvement for 4 epoch(s)
+Epoch 75/100: train loss=0.020874, val loss=0.027469
+  → Best model saved (val loss: 0.027469)
+Epoch 76/100: train loss=0.021065, val loss=0.029116
+  → No improvement for 1 epoch(s)
+Epoch 77/100: train loss=0.021094, val loss=0.027397
+  → Best model saved (val loss: 0.027397)
+Epoch 78/100: train loss=0.020619, val loss=0.027601
+  → No improvement for 1 epoch(s)
+Epoch 79/100: train loss=0.020600, val loss=0.027310
+  → Best model saved (val loss: 0.027310)
+Epoch 80/100: train loss=0.020487, val loss=0.027344
+  → No improvement for 1 epoch(s)
+Epoch 81/100: train loss=0.019988, val loss=0.027076
+  → Best model saved (val loss: 0.027076)
+Epoch 82/100: train loss=0.019819, val loss=0.027860
+  → No improvement for 1 epoch(s)
+Epoch 83/100: train loss=0.019879, val loss=0.027318
+  → No improvement for 2 epoch(s)
+Epoch 84/100: train loss=0.019757, val loss=0.027023
+  → Best model saved (val loss: 0.027023)
+Epoch 85/100: train loss=0.019574, val loss=0.026449
+  → Best model saved (val loss: 0.026449)
+Epoch 86/100: train loss=0.019850, val loss=0.026868
+  → No improvement for 1 epoch(s)
+Epoch 87/100: train loss=0.019474, val loss=0.026866
+  → No improvement for 2 epoch(s)
+Epoch 88/100: train loss=0.018980, val loss=0.026542
+  → No improvement for 3 epoch(s)
+Epoch 89/100: train loss=0.018938, val loss=0.026285
+  → Best model saved (val loss: 0.026285)
+Epoch 90/100: train loss=0.018867, val loss=0.027066
+  → No improvement for 1 epoch(s)
+Epoch 91/100: train loss=0.019122, val loss=0.026242
+  → Best model saved (val loss: 0.026242)
+Epoch 92/100: train loss=0.018755, val loss=0.026233
+  → Best model saved (val loss: 0.026233)
+Epoch 93/100: train loss=0.018792, val loss=0.026269
+  → No improvement for 1 epoch(s)
+Epoch 94/100: train loss=0.018481, val loss=0.025646
+  → Best model saved (val loss: 0.025646)
+Epoch 95/100: train loss=0.018388, val loss=0.025604
+  → Best model saved (val loss: 0.025604)
+Epoch 96/100: train loss=0.018160, val loss=0.026653
+  → No improvement for 1 epoch(s)
+Epoch 97/100: train loss=0.018063, val loss=0.025346
+  → Best model saved (val loss: 0.025346)
+Epoch 98/100: train loss=0.018049, val loss=0.026138
+  → No improvement for 1 epoch(s)
+Epoch 99/100: train loss=0.018164, val loss=0.025924
+  → No improvement for 2 epoch(s)
+Epoch 100/100: train loss=0.017631, val loss=0.025781
+  → No improvement for 3 epoch(s)
+
+======================================================================
+Training complete!
+======================================================================
+Final train loss: 0.017631
+Final val loss:   0.025781
+Saved training history to runs_microstructure_predrnn/2025-11-22_14-58-07/history.json
+
+Loss plot saved to: runs_microstructure_predrnn/2025-11-22_14-58-07/training_losses.png
+Saved loss plot to runs_microstructure_predrnn/2025-11-22_14-58-07/training_losses.png
+Saved final model to runs_microstructure_predrnn/2025-11-22_14-58-07/checkpoints/final_model.pt
+
+======================================================================
+Evaluating on test set...
+======================================================================
+Test loss: 0.033561
+Saved test results to runs_microstructure_predrnn/2025-11-22_14-58-07/test_results.json
+
+All outputs saved to: runs_microstructure_predrnn/2025-11-22_14-58-07
+======================================================================

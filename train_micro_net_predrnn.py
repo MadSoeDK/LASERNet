@@ -13,7 +13,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from lasernet.dataset import MicrostructureSequenceDataset
+from lasernet.dataset.fast_loading import FastMicrostructureSequenceDataset
 from lasernet.model.MicrostructurePredRNN import MicrostructurePredRNN
+from lasernet.model.losses import SolidificationWeightedMSELoss, CombinedLoss
 from lasernet.utils import plot_losses
 
 
@@ -57,10 +59,15 @@ def train_microstructure(
             # Forward pass
             pred_micro = model(context, future_temp)  # [B, 9, H, W]
 
-            # Compute loss only on valid pixels
-            # Expand mask for all 9 microstructure channels
-            mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)  # [B, 9, H, W]
-            loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
+            # Compute loss
+            # Check if criterion expects temperature (weighted loss) or just mask (standard MSE)
+            if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
+                # Use future temperature for weighting (where microstructure is forming)
+                loss = criterion(pred_micro, target_micro, future_temp, target_mask)
+            else:
+                # Standard MSE loss - only on valid pixels
+                mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)  # [B, 9, H, W]
+                loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
 
             loss.backward()
             optimizer.step()
@@ -91,8 +98,12 @@ def train_microstructure(
                 context = torch.cat([context_temp, context_micro], dim=2)
                 pred_micro = model(context, future_temp)
 
-                mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
-                loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
+                # Compute loss
+                if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
+                    loss = criterion(pred_micro, target_micro, future_temp, target_mask)
+                else:
+                    mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
+                    loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
 
                 batch_size = context.size(0)
                 val_loss += loss.item() * batch_size
@@ -158,8 +169,12 @@ def evaluate_test(
             context = torch.cat([context_temp, context_micro], dim=2)
             pred_micro = model(context, future_temp)
 
-            mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
-            loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
+            # Compute loss
+            if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
+                loss = criterion(pred_micro, target_micro, future_temp, target_mask)
+            else:
+                mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
+                loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
 
             batch_size = context.size(0)
             test_loss += loss.item() * batch_size
@@ -195,10 +210,21 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading")
+    parser.add_argument("--use-fast-loading", action="store_true", help="Use fast loading from preprocessed .pt files")
     parser.add_argument("--split-ratio", type=str, default="12,6,6", help="Train/Val/Test split ratio")
     parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames")
     parser.add_argument("--plane", type=str, default="xz", choices=["xy", "yz", "xz"], help="Plane to extract")
     parser.add_argument("--rnn-layers", type=int, default=4, help="Number of PredRNN ST-LSTM layers")
+
+    # Loss function options
+    parser.add_argument("--use-weighted-loss", action="store_true", help="Use solidification front weighted loss")
+    parser.add_argument("--loss-type", type=str, default="weighted", choices=["weighted", "combined"],
+                        help="Type of weighted loss (weighted=100%% solidification, combined=mix with MSE)")
+    parser.add_argument("--T-solidus", type=float, default=1400.0, help="Solidus temperature (K)")
+    parser.add_argument("--T-liquidus", type=float, default=1500.0, help="Liquidus temperature (K)")
+    parser.add_argument("--weight-scale", type=float, default=0.1, help="Weight curve scale (smaller=more focused)")
+    parser.add_argument("--base-weight", type=float, default=0.1, help="Minimum weight outside solidification zone")
+
     args = parser.parse_args()
 
     device = get_device()
@@ -211,7 +237,7 @@ def main() -> None:
 
     # Create run directory
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_dir = Path("runs_microstructure_predrnn") / timestamp
+    run_dir = Path("runs_micro_net_predrnn") / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
 
@@ -221,14 +247,18 @@ def main() -> None:
     print(f"Run directory: {run_dir}")
     print()
     print(f"Configuration:")
-    print(f"  Epochs:        {args.epochs}")
-    print(f"  Batch size:    {args.batch_size}")
-    print(f"  Learning rate: {args.lr}")
-    print(f"  Sequence len:  {args.seq_length}")
-    print(f"  RNN layers:    {args.rnn_layers}")
-    print(f"  Plane:         {args.plane}")
-    print(f"  Device:        {device}")
-    print()
+
+    print("\n=== All arguments ===")
+    for key, value in vars(args).items():
+        print(f"{key}: {value}")
+    # print(f"  Epochs:        {args.epochs}")
+    # print(f"  Batch size:    {args.batch_size}")
+    # print(f"  Learning rate: {args.lr}")
+    # print(f"  Sequence len:  {args.seq_length}")
+    # print(f"  RNN layers:    {args.rnn_layers}")
+    # print(f"  Plane:         {args.plane}")
+    # print(f"  Device:        {device}")
+    # print()
 
     # Create model
     model = MicrostructurePredRNN(
@@ -246,38 +276,74 @@ def main() -> None:
 
     # Create datasets
     print("Loading datasets...")
-    train_dataset = MicrostructureSequenceDataset(
-        plane=args.plane,
-        split="train",
-        sequence_length=args.seq_length,
-        target_offset=1,
-        preload=not args.no_preload,
-        train_ratio=train_ratio,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-    )
 
-    val_dataset = MicrostructureSequenceDataset(
-        plane=args.plane,
-        split="val",
-        sequence_length=args.seq_length,
-        target_offset=1,
-        preload=not args.no_preload,
-        train_ratio=train_ratio,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-    )
+    if args.use_fast_loading:
+        # Use fast loading from preprocessed .pt files
+        print("Using FAST loading from preprocessed .pt files")
+        train_dataset = FastMicrostructureSequenceDataset(
+            plane=args.plane,
+            split="train",
+            sequence_length=args.seq_length,
+            target_offset=1,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+        )
 
-    test_dataset = MicrostructureSequenceDataset(
-        plane=args.plane,
-        split="test",
-        sequence_length=args.seq_length,
-        target_offset=1,
-        preload=not args.no_preload,
-        train_ratio=train_ratio,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-    )
+        val_dataset = FastMicrostructureSequenceDataset(
+            plane=args.plane,
+            split="val",
+            sequence_length=args.seq_length,
+            target_offset=1,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+        )
+
+        test_dataset = FastMicrostructureSequenceDataset(
+            plane=args.plane,
+            split="test",
+            sequence_length=args.seq_length,
+            target_offset=1,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+        )
+    else:
+        # Use original CSV-based loading
+        print("Using CSV-based loading (slower)")
+        train_dataset = MicrostructureSequenceDataset(
+            plane=args.plane,
+            split="train",
+            sequence_length=args.seq_length,
+            target_offset=1,
+            preload=not args.no_preload,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+        )
+
+        val_dataset = MicrostructureSequenceDataset(
+            plane=args.plane,
+            split="val",
+            sequence_length=args.seq_length,
+            target_offset=1,
+            preload=not args.no_preload,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+        )
+
+        test_dataset = MicrostructureSequenceDataset(
+            plane=args.plane,
+            split="test",
+            sequence_length=args.seq_length,
+            target_offset=1,
+            preload=not args.no_preload,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+        )
 
     print(f"\nDataset: MicrostructureSequenceDataset")
     print(f"  Train samples: {len(train_dataset)}")
@@ -300,7 +366,7 @@ def main() -> None:
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-    # Save configuration
+    # Save configuration (will update loss info after creating criterion)
     config = {
         "timestamp": timestamp,
         "model": {
@@ -316,7 +382,7 @@ def main() -> None:
             "batch_size": args.batch_size,
             "learning_rate": args.lr,
             "optimizer": "Adam",
-            "loss": "MSELoss",
+            "loss": "MSELoss",  # Will be updated below
         },
         "dataset": {
             "plane": args.plane,
@@ -337,7 +403,63 @@ def main() -> None:
 
     # Setup training
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    criterion = nn.MSELoss()
+
+    # Create loss function
+    if args.use_weighted_loss:
+        if args.loss_type == "weighted":
+            criterion = SolidificationWeightedMSELoss(
+                T_solidus=args.T_solidus,
+                T_liquidus=args.T_liquidus,
+                weight_type="gaussian",
+                weight_scale=args.weight_scale,
+                base_weight=args.base_weight,
+            )
+            print("Loss function: SolidificationWeightedMSELoss")
+            print(f"  Solidus:      {args.T_solidus} K")
+            print(f"  Liquidus:     {args.T_liquidus} K")
+            print(f"  Weight scale: {args.weight_scale}")
+            print(f"  Base weight:  {args.base_weight}")
+            config["training"]["loss"] = "SolidificationWeightedMSELoss"
+            config["training"]["loss_params"] = {
+                "T_solidus": args.T_solidus,
+                "T_liquidus": args.T_liquidus,
+                "weight_type": "gaussian",
+                "weight_scale": args.weight_scale,
+                "base_weight": args.base_weight,
+            }
+        else:  # combined
+            criterion = CombinedLoss(
+                solidification_weight=0.7,
+                global_weight=0.3,
+                T_solidus=args.T_solidus,
+                T_liquidus=args.T_liquidus,
+                weight_type="gaussian",
+                weight_scale=args.weight_scale,
+                base_weight=args.base_weight,
+            )
+            print("Loss function: CombinedLoss (70% solidification + 30% global MSE)")
+            print(f"  Solidus:      {args.T_solidus} K")
+            print(f"  Liquidus:     {args.T_liquidus} K")
+            print(f"  Weight scale: {args.weight_scale}")
+            print(f"  Base weight:  {args.base_weight}")
+            config["training"]["loss"] = "CombinedLoss"
+            config["training"]["loss_params"] = {
+                "solidification_weight": 0.7,
+                "global_weight": 0.3,
+                "T_solidus": args.T_solidus,
+                "T_liquidus": args.T_liquidus,
+                "weight_type": "gaussian",
+                "weight_scale": args.weight_scale,
+                "base_weight": args.base_weight,
+            }
+    else:
+        criterion = nn.MSELoss()
+        print("Loss function: MSELoss (standard)")
+    print()
+
+    # Update config file with loss info
+    with open(run_dir / "config.json", "w") as f:
+        json.dump(config, f, indent=2)
 
     # Train
     history = train_microstructure(

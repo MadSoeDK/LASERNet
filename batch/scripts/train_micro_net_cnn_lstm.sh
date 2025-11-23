@@ -29,4 +29,5 @@ python train_micro_net_cnn_lstm.py \
   --lr 1e-3 \
   --seq-length 3 \
   --plane xz \
-  --split-ratio "12,6,6"
+  --split-ratio "12,6,6" \
+  --use-fast-loading

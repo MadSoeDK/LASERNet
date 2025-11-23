@@ -31,4 +31,8 @@ python train_micro_net_predrnn.py \
   --plane xz \
   --rnn-layers 4 \
   --split-ratio "12,6,6" \
-  --use-fast-loading
+  --use-weighted-loss \
+  --T-solidus 1400.0 \
+  --T-liquidus 1500.0 \
+  --weight-scale 0.1 \
+  --base-weight 0.1

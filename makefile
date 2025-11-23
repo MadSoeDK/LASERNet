@@ -32,12 +32,12 @@ train:
 	bsub < batch/scripts/train.sh
 	@echo "Job submitted. Check status with: bjobs"
 
-train-micro-net-cnn-lstm:
+submit-train-micro-net-cnn-lstm:
 	@echo "Submitting microstructure prediction job to HPC..."
 	bsub < batch/scripts/train_micro_net_cnn_lstm.sh
 	@echo "Job submitted. Check status with: bjobs"
 
-train-micro-net-predrnn:
+submit-train-micro-net-predrnn:
 	@echo "Submitting microstructure prediction job to HPC..."
 	bsub < batch/scripts/train_micro_net_predrnn.sh
 	@echo "Job submitted. Check status with: bjobs"
