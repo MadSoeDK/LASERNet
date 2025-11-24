@@ -15,7 +15,15 @@ from tqdm import tqdm
 from lasernet.dataset import MicrostructureSequenceDataset
 from lasernet.dataset.fast_loading import FastMicrostructureSequenceDataset
 from lasernet.model.MicrostructureCNN_LSTM import MicrostructureCNN_LSTM
-from lasernet.model.losses import SolidificationWeightedMSELoss, CombinedLoss
+from lasernet.model.losses import (
+    SolidificationWeightedMSELoss,
+    CombinedLoss,
+    SharpnessEnhancedLoss,
+    GradientPenaltyLoss,
+    PerceptualLoss,
+    CharbonnierLoss,
+    L1Loss,
+)
 from lasernet.utils import plot_losses
 
 
@@ -60,7 +68,7 @@ def train_microstructure(
             pred_micro = model(context, future_temp)  # [B, 9, H, W]
 
             # Compute loss
-            if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
+            if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss, SharpnessEnhancedLoss)):
                 # Use future temperature for weighting (where microstructure is forming)
                 loss = criterion(pred_micro, target_micro, future_temp, target_mask)
             else:
@@ -98,7 +106,7 @@ def train_microstructure(
                 pred_micro = model(context, future_temp)
 
                 # Compute loss
-                if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
+                if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss, SharpnessEnhancedLoss)):
                     loss = criterion(pred_micro, target_micro, future_temp, target_mask)
                 else:
                     mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
@@ -169,7 +177,7 @@ def evaluate_test(
             pred_micro = model(context, future_temp)
 
             # Compute loss
-            if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
+            if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss, SharpnessEnhancedLoss)):
                 loss = criterion(pred_micro, target_micro, future_temp, target_mask)
             else:
                 mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
@@ -216,12 +224,19 @@ def main() -> None:
 
     # Loss function options
     parser.add_argument("--use-weighted-loss", action="store_true", help="Use solidification front weighted loss")
-    parser.add_argument("--loss-type", type=str, default="weighted", choices=["weighted", "combined"],
-                        help="Type of weighted loss (weighted=100%% solidification, combined=mix with MSE)")
+    parser.add_argument("--loss-type", type=str, default="weighted", choices=["weighted", "combined", "sharpness"],
+                        help="Type of loss (weighted=solidification only, combined=mix, sharpness=anti-blur)")
     parser.add_argument("--T-solidus", type=float, default=1400.0, help="Solidus temperature (K)")
     parser.add_argument("--T-liquidus", type=float, default=1500.0, help="Liquidus temperature (K)")
     parser.add_argument("--weight-scale", type=float, default=0.1, help="Weight curve scale (smaller=more focused)")
     parser.add_argument("--base-weight", type=float, default=0.1, help="Minimum weight outside solidification zone")
+
+    # Sharpness loss options
+    parser.add_argument("--gradient-weight", type=float, default=0.1, help="Weight for gradient penalty (sharpness)")
+    parser.add_argument("--perceptual-weight", type=float, default=0.0, help="Weight for perceptual loss")
+    parser.add_argument("--use-l1-loss", action="store_true", help="Use L1 loss instead of MSE (sharper results)")
+    parser.add_argument("--use-charbonnier", action="store_true", help="Use Charbonnier loss instead of MSE")
+    parser.add_argument("--enable-solidification-sharp", action="store_true", help="Enable solidification weighting with sharpness loss")
 
     args = parser.parse_args()
 
@@ -421,7 +436,7 @@ def main() -> None:
                 "weight_scale": args.weight_scale,
                 "base_weight": args.base_weight,
             }
-        else:  # combined
+        elif args.loss_type == "combined":
             criterion = CombinedLoss(
                 solidification_weight=0.7,
                 global_weight=0.3,
@@ -446,6 +461,67 @@ def main() -> None:
                 "weight_scale": args.weight_scale,
                 "base_weight": args.base_weight,
             }
+        else:  # sharpness
+            # Determine base loss type
+            if args.enable_solidification_sharp:
+                base_loss_name = "Solidification-weighted MSE"
+            elif args.use_charbonnier:
+                base_loss_name = "Charbonnier"
+            elif args.use_l1_loss:
+                base_loss_name = "L1"
+            else:
+                base_loss_name = "MSE"
+
+            criterion = SharpnessEnhancedLoss(
+                mse_weight=1.0,
+                gradient_weight=args.gradient_weight,
+                perceptual_weight=args.perceptual_weight,
+                use_solidification_weighting=args.enable_solidification_sharp,
+                use_l1_loss=args.use_l1_loss and not args.enable_solidification_sharp,
+                use_charbonnier=args.use_charbonnier and not args.enable_solidification_sharp,
+                T_solidus=args.T_solidus,
+                T_liquidus=args.T_liquidus,
+                weight_scale=args.weight_scale,
+                base_weight=args.base_weight,
+            )
+
+            if args.enable_solidification_sharp:
+                print(f"Loss function: SharpnessEnhancedLoss ({base_loss_name} + Gradient Penalty)")
+                print(f"  Base loss:         {base_loss_name}")
+                print(f"  Loss weight:       1.0")
+                print(f"  Gradient weight:   {args.gradient_weight} (encourages sharp edges)")
+                print(f"  Perceptual weight: {args.perceptual_weight}")
+                print(f"  Solidification weighting: ENABLED")
+                print(f"  Solidus:           {args.T_solidus} K")
+                print(f"  Liquidus:          {args.T_liquidus} K")
+                print(f"  Weight scale:      {args.weight_scale}")
+                print(f"  Base weight:       {args.base_weight}")
+            else:
+                print(f"Loss function: SharpnessEnhancedLoss ({base_loss_name} + Gradient Penalty)")
+                print(f"  Base loss:         {base_loss_name}")
+                print(f"  Loss weight:       1.0")
+                print(f"  Gradient weight:   {args.gradient_weight} (encourages sharp edges)")
+                print(f"  Perceptual weight: {args.perceptual_weight}")
+                print(f"  Solidification weighting: DISABLED")
+
+            config["training"]["loss"] = "SharpnessEnhancedLoss"
+            config["training"]["loss_params"] = {
+                "mse_weight": 1.0,
+                "gradient_weight": args.gradient_weight,
+                "perceptual_weight": args.perceptual_weight,
+                "use_solidification_weighting": args.enable_solidification_sharp,
+                "use_l1_loss": args.use_l1_loss and not args.enable_solidification_sharp,
+                "use_charbonnier": args.use_charbonnier and not args.enable_solidification_sharp,
+                "base_loss": base_loss_name,
+            }
+
+            if args.enable_solidification_sharp:
+                config["training"]["loss_params"].update({
+                    "T_solidus": args.T_solidus,
+                    "T_liquidus": args.T_liquidus,
+                    "weight_scale": args.weight_scale,
+                    "base_weight": args.base_weight,
+                })
     else:
         criterion = nn.MSELoss()
         print("Loss function: MSELoss (standard)")

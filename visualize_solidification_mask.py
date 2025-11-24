@@ -1,9 +1,9 @@
 """
-Predict next microstructure frame from a trained model.
+Visualize solidification front weighting mask for the CombinedLoss function.
 
-This script loads a trained model and generates a prediction for a specific
-timestep and slice index. The prediction is visualized side-by-side with the
-ground truth for comparison.
+This script loads a trained model and generates predictions, then overlays
+the solidification front weighting mask to show which regions the loss
+function is focusing on during training.
 """
 
 import argparse
@@ -17,6 +17,7 @@ import torch
 from lasernet.dataset.loading import PointCloudDataset
 from lasernet.model.MicrostructureCNN_LSTM import MicrostructureCNN_LSTM
 from lasernet.model.MicrostructurePredRNN import MicrostructurePredRNN
+from lasernet.model.losses import SolidificationWeightedMSELoss, CombinedLoss
 
 
 def load_model(checkpoint_path: str, device: str = 'cuda'):
@@ -83,8 +84,6 @@ def load_data_at_timesteps(
     Returns:
         Dictionary containing loaded data
     """
-    # Create datasets that access ALL timesteps (use 'train' split and adjust ratios to get all data)
-    # We'll use train_ratio=1.0 to get all timesteps in the train split
     print(f"Loading data at timesteps {timesteps} for slice index {slice_index}...")
 
     temp_dataset = PointCloudDataset(
@@ -158,194 +157,188 @@ def load_data_at_timesteps(
     }
 
 
-def save_prediction_image(
-    pred_micro: torch.Tensor,
-    mask: torch.Tensor,
-    save_path: str
-) -> None:
-    """
-    Save the prediction as a standalone image.
-
-    Args:
-        pred_micro: [9, H, W] - predicted microstructure
-        mask: [H, W] - valid pixel mask
-        save_path: path to save image
-    """
-    # Prepare mask for visualization
-    mask_np = mask.cpu().numpy()
-    mask_3d = np.stack([mask_np] * 3, axis=-1)
-
-    # Convert prediction to RGB (IPF-X)
-    pred = pred_micro[:3].cpu().numpy()  # IPF-X RGB
-    pred_rgb = np.transpose(pred, (1, 2, 0))
-    pred_rgb_masked = np.where(mask_3d, pred_rgb, 0)
-
-    # Create figure with just the prediction
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(pred_rgb_masked, interpolation='nearest')
-    ax.axis('off')
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-
-    # Save
-    os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
-    plt.savefig(save_path, dpi=300, bbox_inches='tight', pad_inches=0)
-    print(f"Prediction image saved to: {save_path}")
-    plt.close(fig)
-
-
-def visualize_comparison(
-    context_temp: torch.Tensor,
-    context_micro: torch.Tensor,
+def visualize_solidification_mask(
     future_temp: torch.Tensor,
     target_micro: torch.Tensor,
     pred_micro: torch.Tensor,
     mask: torch.Tensor,
-    context_timesteps: list,
+    loss_fn: SolidificationWeightedMSELoss,
     target_timestep: int,
     slice_coord: float,
     save_path: str,
-    figsize: tuple = (20, 12)
+    figsize: tuple = (20, 10)
 ) -> None:
     """
-    Visualize prediction vs ground truth with full context.
+    Visualize solidification front weighting mask overlaid on temperature and microstructure.
 
-    Creates a 3-row visualization:
-    - Row 1: Temperature context sequence + future temperature
-    - Row 2: Microstructure context sequence + target microstructure
-    - Row 3: Ground truth, Prediction, and Difference map (side-by-side comparison)
+    Creates a multi-panel visualization showing:
+    - Temperature field with solidification range highlighted
+    - Weight map from the loss function
+    - Temperature with weight overlay (heat map)
+    - Ground truth microstructure
+    - Predicted microstructure
+    - Weighted error map
 
     Args:
-        context_temp: [seq_len, 1, H, W] - context temperature
-        context_micro: [seq_len, 9, H, W] - context microstructure
         future_temp: [1, H, W] - future temperature
         target_micro: [9, H, W] - ground truth microstructure
         pred_micro: [9, H, W] - predicted microstructure
         mask: [H, W] - valid pixel mask
-        context_timesteps: list of context timestep indices
+        loss_fn: Loss function with get_weight_map method
         target_timestep: target timestep index
         slice_coord: slice coordinate value
         save_path: path to save figure
         figsize: figure size
     """
-    seq_len = context_temp.shape[0]
-
-    # Create figure with 3 rows
-    fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(3, max(seq_len + 1, 3), hspace=0.3, wspace=0.3)
-
-    # Prepare mask for visualization
+    # Prepare data
+    temp_np = future_temp[0].cpu().numpy()
     mask_np = mask.cpu().numpy()
     mask_3d = np.stack([mask_np] * 3, axis=-1)
 
-    # Row 1: Temperature context
-    for i in range(seq_len):
-        ax = fig.add_subplot(gs[0, i])
-        temp = context_temp[i, 0].cpu().numpy()
-        temp_masked = np.ma.masked_where(~mask_np, temp)
+    # Get weight map from loss function
+    weight_map = loss_fn.get_weight_map(
+        future_temp.unsqueeze(0),  # Add batch dimension [1, 1, H, W]
+        mask.unsqueeze(0)          # Add batch dimension [1, H, W]
+    ).squeeze(0).cpu().numpy()     # Remove batch dimension [H, W]
 
-        im = ax.imshow(temp_masked, cmap='hot', interpolation='nearest')
-        ax.set_title(f'Temp t={context_timesteps[i]}', fontsize=10)
-        ax.axis('off')
-        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    # Denormalize temperature for display
+    temp_min = 300.0
+    temp_max = 2000.0
+    temp_denorm = temp_np * (temp_max - temp_min) + temp_min
 
-    # Future temperature
-    ax = fig.add_subplot(gs[0, seq_len])
-    temp_future = future_temp[0].cpu().numpy()
-    temp_future_masked = np.ma.masked_where(~mask_np, temp_future)
-
-    im = ax.imshow(temp_future_masked, cmap='hot', interpolation='nearest')
-    ax.set_title(f'Temp t={target_timestep}\n(Future)', fontsize=10, fontweight='bold')
-    ax.axis('off')
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-
-    # Row 2: Microstructure context
-    for i in range(seq_len):
-        ax = fig.add_subplot(gs[1, i])
-        micro = context_micro[i, :3].cpu().numpy()  # IPF-X RGB
-        micro_rgb = np.transpose(micro, (1, 2, 0))
-        micro_rgb_masked = np.where(mask_3d, micro_rgb, 0)
-
-        ax.imshow(micro_rgb_masked, interpolation='nearest')
-        ax.set_title(f'Micro t={context_timesteps[i]}', fontsize=10)
-        ax.axis('off')
-
-    # Target microstructure (for context)
-    ax = fig.add_subplot(gs[1, seq_len])
-    target = target_micro[:3].cpu().numpy()  # IPF-X RGB
-    target_rgb = np.transpose(target, (1, 2, 0))
+    # Prepare microstructure RGB
+    target_rgb = np.transpose(target_micro[:3].cpu().numpy(), (1, 2, 0))
     target_rgb_masked = np.where(mask_3d, target_rgb, 0)
 
-    ax.imshow(target_rgb_masked, interpolation='nearest')
-    ax.set_title(f'Micro t={target_timestep}\n(Target)', fontsize=10, fontweight='bold')
+    pred_rgb = np.transpose(pred_micro[:3].cpu().numpy(), (1, 2, 0))
+    pred_rgb_masked = np.where(mask_3d, pred_rgb, 0)
+
+    # Calculate weighted error
+    error = ((target_micro - pred_micro) ** 2).mean(dim=0).cpu().numpy()  # [H, W]
+    weighted_error = error * weight_map
+
+    # Create figure
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
+    fig.suptitle(
+        f'Solidification Front Weighting Visualization\n'
+        f'Timestep: {target_timestep} | Slice: {slice_coord:.2f} | '
+        f'T_solidus={loss_fn.T_solidus:.0f}K, T_liquidus={loss_fn.T_liquidus:.0f}K',
+        fontsize=16,
+        fontweight='bold'
+    )
+
+    # Row 1, Col 1: Temperature field with solidification range
+    ax = axes[0, 0]
+    temp_masked = np.ma.masked_where(~mask_np, temp_denorm)
+    im = ax.imshow(temp_masked, cmap='hot', interpolation='nearest')
+
+    # Add contour lines for solidification range
+    T_solidus = loss_fn.T_solidus
+    T_liquidus = loss_fn.T_liquidus
+    T_mid = (T_solidus + T_liquidus) / 2
+
+    # Only draw contours where mask is valid
+    temp_for_contour = np.where(mask_np, temp_denorm, np.nan)
+
+    contours_solidus = ax.contour(temp_for_contour, levels=[T_solidus], colors='cyan', linewidths=2, linestyles='--')
+    contours_liquidus = ax.contour(temp_for_contour, levels=[T_liquidus], colors='blue', linewidths=2, linestyles='--')
+    contours_mid = ax.contour(temp_for_contour, levels=[T_mid], colors='lime', linewidths=3)
+
+    ax.clabel(contours_solidus, inline=True, fontsize=8, fmt=f'{T_solidus:.0f}K')
+    ax.clabel(contours_liquidus, inline=True, fontsize=8, fmt=f'{T_liquidus:.0f}K')
+    ax.clabel(contours_mid, inline=True, fontsize=8, fmt=f'{T_mid:.0f}K (peak)')
+
+    ax.set_title('Temperature Field\n(with solidification range)', fontsize=12, fontweight='bold')
+    ax.axis('off')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+
+    # Row 1, Col 2: Weight map
+    ax = axes[0, 1]
+    weight_masked = np.ma.masked_where(~mask_np, weight_map)
+    im = ax.imshow(weight_masked, cmap='viridis', interpolation='nearest', vmin=0, vmax=1)
+    ax.set_title(f'Loss Weight Map\n(type={loss_fn.weight_type}, scale={loss_fn.weight_scale})',
+                 fontsize=12, fontweight='bold')
+    ax.axis('off')
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Weight')
+
+    # Add statistics
+    weight_stats = f'Min: {weight_map[mask_np].min():.3f}\nMax: {weight_map[mask_np].max():.3f}\nMean: {weight_map[mask_np].mean():.3f}'
+    ax.text(0.02, 0.98, weight_stats, transform=ax.transAxes,
+            fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    # Row 1, Col 3: Temperature with weight overlay
+    ax = axes[0, 2]
+    # Create RGBA overlay where weight is shown as opacity
+    temp_normalized = (temp_denorm - temp_masked.min()) / (temp_masked.max() - temp_masked.min())
+    temp_rgb = plt.cm.hot(temp_normalized)[:, :, :3]  # Get RGB only
+
+    # Blend temperature and weight using weight as alpha
+    alpha = weight_map[:, :, np.newaxis] * mask_np[:, :, np.newaxis]
+    overlay = temp_rgb * (1 - alpha * 0.7) + plt.cm.viridis(weight_map)[:, :, :3] * alpha * 0.7
+    overlay_masked = np.where(mask_3d, overlay, 0)
+
+    ax.imshow(overlay_masked, interpolation='nearest')
+    ax.set_title('Temperature × Weight\n(high weight = bright overlay)', fontsize=12, fontweight='bold')
     ax.axis('off')
 
-    # Row 3: MAIN COMPARISON (Ground Truth vs Prediction vs Difference)
-    # Ground truth
-    ax = fig.add_subplot(gs[2, 0])
+    # Row 2, Col 1: Ground truth microstructure
+    ax = axes[1, 0]
     ax.imshow(target_rgb_masked, interpolation='nearest')
     ax.set_title('Ground Truth\n(IPF-X RGB)', fontsize=12, fontweight='bold')
     ax.axis('off')
 
-    # Prediction
-    ax = fig.add_subplot(gs[2, 1])
-    pred = pred_micro[:3].cpu().numpy()  # IPF-X RGB
-    pred_rgb = np.transpose(pred, (1, 2, 0))
-    pred_rgb_masked = np.where(mask_3d, pred_rgb, 0)
-
+    # Row 2, Col 2: Predicted microstructure
+    ax = axes[1, 1]
     ax.imshow(pred_rgb_masked, interpolation='nearest')
     ax.set_title('Prediction\n(IPF-X RGB)', fontsize=12, fontweight='bold')
     ax.axis('off')
 
-    # Difference (MSE across all 9 channels)
-    ax = fig.add_subplot(gs[2, 2])
-    diff = ((target_micro - pred_micro) ** 2).mean(dim=0).cpu().numpy()
-    diff_masked = np.ma.masked_where(~mask_np, diff)
-
-    im = ax.imshow(diff_masked, cmap='RdYlGn_r', interpolation='nearest', vmin=0)
-    ax.set_title('Difference\n(MSE)', fontsize=12, fontweight='bold')
+    # Row 2, Col 3: Weighted error map
+    ax = axes[1, 2]
+    weighted_error_masked = np.ma.masked_where(~mask_np, weighted_error)
+    im = ax.imshow(weighted_error_masked, cmap='RdYlGn_r', interpolation='nearest')
+    ax.set_title('Weighted Error Map\n(MSE × Weight)', fontsize=12, fontweight='bold')
     ax.axis('off')
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Weighted MSE')
 
-    # Calculate metrics
-    mse = ((target_micro - pred_micro) ** 2).mean().item()
-    mae = (target_micro - pred_micro).abs().mean().item()
-
-    # Overall title
-    fig.suptitle(
-        f'Microstructure Prediction - Slice Coord: {slice_coord:.2f} | Target Timestep: {target_timestep}\n'
-        f'MSE: {mse:.6f} | MAE: {mae:.6f}',
-        fontsize=14,
-        fontweight='bold'
-    )
+    # Add error statistics
+    unweighted_mse = error[mask_np].mean()
+    weighted_mse = weighted_error[mask_np].sum() / weight_map[mask_np].sum()
+    error_stats = f'Unweighted MSE: {unweighted_mse:.6f}\nWeighted MSE: {weighted_mse:.6f}'
+    ax.text(0.02, 0.98, error_stats, transform=ax.transAxes,
+            fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
     # Save
     os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+    plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    print(f"\nPrediction visualization saved to: {save_path}")
+    print(f"\nSolidification mask visualization saved to: {save_path}")
     plt.close(fig)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Predict next microstructure frame from trained model',
+        description='Visualize solidification front weighting mask',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Predict timestep 10, slice 5, using model trained with sequence length 3
-  python predict_microstructure.py \\
+  # Visualize solidification mask for timestep 10, slice 5
+  python visualize_solidification_mask.py \\
       --checkpoint runs_micro_net_cnn_lstm/2025-11-23_10-29-35/checkpoints/best_model.pt \\
       --timestep 10 \\
       --slice-index 5 \\
       --sequence-length 3 \\
-      --output predictions/pred_t10_s5.png
+      --output visualizations/solidification_mask_t10_s5.png
 
-  # Use CPU
-  python predict_microstructure.py \\
+  # Use different solidification temperatures
+  python visualize_solidification_mask.py \\
       --checkpoint runs_micro_net_cnn_lstm/2025-11-23_10-29-35/checkpoints/best_model.pt \\
       --timestep 15 \\
       --slice-index 0 \\
       --sequence-length 3 \\
-      --device cpu
+      --T-solidus 1350 \\
+      --T-liquidus 1550 \\
+      --weight-scale 0.05
         """
     )
 
@@ -353,35 +346,35 @@ Examples:
         '--checkpoint', '-c',
         type=str,
         required=True,
-        help='Path to model checkpoint (e.g., runs_micro_net_cnn_lstm/.../checkpoints/best_model.pt)'
+        help='Path to model checkpoint'
     )
 
     parser.add_argument(
         '--timestep', '-t',
         type=int,
         required=True,
-        help='Target timestep to predict (must be >= sequence_length)'
+        help='Target timestep to predict'
     )
 
     parser.add_argument(
         '--slice-index', '-s',
         type=int,
         required=True,
-        help='Index of the slice to predict (0 to num_slices-1)'
+        help='Index of the slice to predict'
     )
 
     parser.add_argument(
         '--sequence-length', '-l',
         type=int,
         required=True,
-        help='Number of previous timesteps used as context (must match model training)'
+        help='Number of previous timesteps used as context'
     )
 
     parser.add_argument(
         '--output', '-o',
         type=str,
         default=None,
-        help='Output path for visualization (default: predictions/pred_tX_sY.png)'
+        help='Output path for visualization (default: visualizations/solidification_mask_tX_sY.png)'
     )
 
     parser.add_argument(
@@ -400,6 +393,43 @@ Examples:
         help='Device to use (default: cuda)'
     )
 
+    # Loss function parameters
+    parser.add_argument(
+        '--T-solidus',
+        type=float,
+        default=1400.0,
+        help='Solidus temperature in Kelvin (default: 1400.0)'
+    )
+
+    parser.add_argument(
+        '--T-liquidus',
+        type=float,
+        default=1500.0,
+        help='Liquidus temperature in Kelvin (default: 1500.0)'
+    )
+
+    parser.add_argument(
+        '--weight-type',
+        type=str,
+        default='gaussian',
+        choices=['gaussian', 'linear', 'exponential'],
+        help='Type of weighting function (default: gaussian)'
+    )
+
+    parser.add_argument(
+        '--weight-scale',
+        type=float,
+        default=0.1,
+        help='Weight curve scale factor (default: 0.1)'
+    )
+
+    parser.add_argument(
+        '--base-weight',
+        type=float,
+        default=0.1,
+        help='Minimum weight outside solidification zone (default: 0.1)'
+    )
+
     args = parser.parse_args()
 
     # Validate inputs
@@ -415,9 +445,23 @@ Examples:
     # Load model
     model = load_model(args.checkpoint, device=str(device))
 
-    # Compute timesteps to load: [target - seq_len, ..., target - 1, target]
-    # For example: if target=10 and seq_len=3, load [7, 8, 9, 10]
-    # Context will be [7, 8, 9], target will be 10
+    # Create loss function for weight visualization
+    loss_fn = SolidificationWeightedMSELoss(
+        T_solidus=args.T_solidus,
+        T_liquidus=args.T_liquidus,
+        weight_type=args.weight_type,
+        weight_scale=args.weight_scale,
+        base_weight=args.base_weight,
+    )
+
+    print(f"\nLoss function configuration:")
+    print(f"  T_solidus:    {args.T_solidus} K")
+    print(f"  T_liquidus:   {args.T_liquidus} K")
+    print(f"  Weight type:  {args.weight_type}")
+    print(f"  Weight scale: {args.weight_scale}")
+    print(f"  Base weight:  {args.base_weight}")
+
+    # Compute timesteps to load
     target_timestep = args.timestep
     context_start = target_timestep - args.sequence_length
     timesteps_to_load = list(range(context_start, target_timestep + 1))
@@ -438,7 +482,7 @@ Examples:
     target_micro = data['target_micro'].to(device)  # [9, H, W]
     mask = data['mask']  # [H, W]
 
-    # Combine context (temp + micro)
+    # Combine context
     context = torch.cat([context_temp, context_micro], dim=2)  # [1, seq_len, 10, H, W]
 
     # Predict
@@ -448,39 +492,24 @@ Examples:
 
     # Calculate metrics
     mse = ((target_micro - pred_micro) ** 2).mean().item()
-    mae = (target_micro - pred_micro).abs().mean().item()
-
-    print(f"\nPrediction metrics:")
-    print(f"  MSE: {mse:.6f}")
-    print(f"  MAE: {mae:.6f}")
-    print(f"  Prediction range: [{pred_micro.min():.4f}, {pred_micro.max():.4f}]")
+    print(f"\nPrediction MSE: {mse:.6f}")
 
     # Determine output path
     if args.output is None:
-        output_path = f"predictions/pred_t{args.timestep}_s{args.slice_index}.png"
+        output_path = f"visualizations/solidification_mask_t{args.timestep}_s{args.slice_index}.png"
     else:
         output_path = args.output
 
     # Visualize
-    visualize_comparison(
-        context_temp=data['context_temp'],
-        context_micro=data['context_micro'],
+    visualize_solidification_mask(
         future_temp=data['future_temp'],
         target_micro=target_micro,
         pred_micro=pred_micro,
         mask=mask,
-        context_timesteps=data['context_timesteps'],
+        loss_fn=loss_fn,
         target_timestep=data['target_timestep'],
         slice_coord=data['slice_coord'],
         save_path=output_path
-    )
-
-    # Save prediction as a separate image
-    pred_only_path = output_path.replace('.png', '_prediction_only.png')
-    save_prediction_image(
-        pred_micro=pred_micro,
-        mask=mask,
-        save_path=pred_only_path
     )
 
     print("\nDone!")
