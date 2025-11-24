@@ -52,7 +52,10 @@ def train_tempnet(
 
             # Only compute loss on valid pixels
             mask_expanded = target_mask.unsqueeze(1)  # [B, 1, H, W]
+
             loss = criterion(pred[mask_expanded], target[mask_expanded])
+            #loss = (0.5 * nn.functional.mse_loss(pred[mask_expanded], target[mask_expanded])+ 0.5 * nn.functional.l1_loss(pred[mask_expanded], target[mask_expanded]))
+
             mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
 
 
@@ -90,6 +93,7 @@ def train_tempnet(
 
                 mask_expanded = target_mask.unsqueeze(1)
                 loss = criterion(pred[mask_expanded], target[mask_expanded])
+                #loss = (0.5 * nn.functional.mse_loss(pred[mask_expanded], target[mask_expanded])+ 0.5 * nn.functional.l1_loss(pred[mask_expanded], target[mask_expanded]))
                 mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
 
 
@@ -208,6 +212,7 @@ def evaluate_test(
 
             mask_expanded = target_mask.unsqueeze(1)
             loss = criterion(pred[mask_expanded], target[mask_expanded])
+            #loss = (0.5 * nn.functional.mse_loss(pred[mask_expanded], target[mask_expanded])+ 0.5 * nn.functional.l1_loss(pred[mask_expanded], target[mask_expanded]))
 
             batch_size = context.size(0)
             test_loss += loss.item() * batch_size
@@ -264,7 +269,7 @@ def main() -> None:
     parser.add_argument("--visualize-every", type=int, default=25, help="Visualize activations every N epochs (0 to disable)")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
     parser.add_argument("--split-ratio", type=str, default="10,6,8", help="Train/Val/Test split ratio")
-    parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames in input sequence")
+    parser.add_argument("--seq-length", type=int, default=4, help="Number of context frames in input sequence")
     parser.add_argument("--note", type=str, default="", help="Short note describing this run")
     args = parser.parse_args()
     device = get_device()
@@ -391,7 +396,7 @@ def main() -> None:
             "hidden_channels": [16, 32, 64],
             "lstm_hidden": 64,
             "temp_min": 300.0,
-            "temp_max": 2000.0,
+            "temp_max": 4600.0,
         },
         "training": {
             "epochs": args.epochs,
@@ -428,6 +433,15 @@ def main() -> None:
     # Setup training components
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
+    
+    #criterion = nn.L1Loss()
+    #mse = nn.MSELoss()
+    #l1  = nn.L1Loss()
+    #criterion = nn.SmoothL1Loss()
+    #mse = nn.MSELoss()
+    #l1  = nn.L1Loss()
+
+
 
     #added this to see the temp difference
     mae_fn = nn.L1Loss()

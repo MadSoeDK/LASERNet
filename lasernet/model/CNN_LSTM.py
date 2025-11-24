@@ -227,8 +227,8 @@ class CNN_LSTM(nn.Module):
             p2 = self.pool(e2)         # [B, 32, H/4, W/4]
 
             e3 = self.enc3(p2)         # [B, 64, H/4, W/4]
-            p3 = self.pool(e3)         # [B, 64, H/8, W/8]
-            #p3 = e3 #tried to remove pooling
+            #p3 = self.pool(e3)         # [B, 64, H/8, W/8]
+            p3 = e3 #tried to remove pooling
 
             encoded_frames.append(p3)
             skip_e1.append(e1)
