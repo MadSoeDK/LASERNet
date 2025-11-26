@@ -273,7 +273,7 @@ class GradientPenaltyLoss(nn.Module):
         super().__init__()
         self.weight = weight
 
-    def forward(self, pred: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, pred: torch.Tensor, mask: torch.Tensor, weight_map: torch.Tensor | None = None) -> torch.Tensor:
         """
         Compute gradient penalty (sharpness) loss.
 
@@ -299,6 +299,15 @@ class GradientPenaltyLoss(nn.Module):
         # Compute mean gradient magnitude (only in valid regions)
         grad_x_masked = grad_x * mask_x
         grad_y_masked = grad_y * mask_y
+
+        if weight_map is not None:
+            # weight_map: [B, H, W]
+            wx = weight_map[:, :, :-1] * weight_map[:, :, 1:]     # [B, H, W-1]
+            wy = weight_map[:, :-1, :] * weight_map[:, 1:, :]     # [B, H-1, W]
+            wx = wx.unsqueeze(1)
+            wy = wy.unsqueeze(1)
+            grad_x_masked = grad_x_masked * wx
+            grad_y_masked = grad_y_masked * wy
 
         total_x = grad_x_masked.sum()
         total_y = grad_y_masked.sum()
@@ -401,8 +410,8 @@ class SharpnessEnhancedLoss(nn.Module):
         use_solidification_weighting: bool = False,
         use_l1_loss: bool = False,
         use_charbonnier: bool = False,
-        T_solidus: float = 1000.0,
-        T_liquidus: float = 2500.0,
+        T_solidus: float = 1560.0,
+        T_liquidus: float = 1620.0,
         weight_scale: float = 0.1,
         base_weight: float = 0.1,
     ):
@@ -465,27 +474,61 @@ class SharpnessEnhancedLoss(nn.Module):
         total_loss = 0.0
 
         # 1. MSE loss (accuracy)
+        # 1. Base reconstruction loss (accuracy)
         if self.needs_temperature:
             if temperature is None:
                 raise ValueError("Temperature required for solidification-weighted loss")
             mse = self.mse_loss(pred, target, temperature, mask)
         else:
-            if mask is not None:
-                mask_expanded = mask.unsqueeze(1).expand_as(target)
-                mse = nn.functional.mse_loss(pred[mask_expanded], target[mask_expanded])
+            if isinstance(self.mse_loss, (L1Loss, CharbonnierLoss)):
+                # These classes already know how to handle the mask
+                mse = self.mse_loss(pred, target, mask)
             else:
-                mse = self.mse_loss(pred, target)
+                # Standard MSE-style loss (nn.MSELoss)
+                if mask is not None:
+                    mask_expanded = mask.unsqueeze(1).expand_as(target)
+                    mse = self.mse_loss(pred[mask_expanded], target[mask_expanded])
+                else:
+                    mse = self.mse_loss(pred, target)
+
 
         total_loss += self.mse_weight * mse
 
         # 2. Gradient penalty (sharpness)
+
+        # if self.gradient_weight > 0:
+        #     grad_penalty = self.gradient_loss(pred, mask if mask is not None else torch.ones_like(pred[:, 0]))
+        #     total_loss += self.gradient_weight * grad_penalty
+
         if self.gradient_weight > 0:
-            grad_penalty = self.gradient_loss(pred, mask if mask is not None else torch.ones_like(pred[:, 0]))
+            if mask is None:
+                mask_for_grad = torch.ones_like(pred[:, 0], dtype=pred.dtype, device=pred.device)
+            else:
+                mask_for_grad = mask
+
+             # Optional: if using solidification weighting, reuse the same weight map for gradients
+            if self.needs_temperature:
+                # [B, H, W]
+                weight_map = self.mse_loss.get_weight_map(temperature, mask_for_grad)
+            else:
+                weight_map = None
+
+            grad_penalty = self.gradient_loss(pred, mask_for_grad, weight_map)
             total_loss += self.gradient_weight * grad_penalty
+        
 
         # 3. Perceptual loss (optional)
+        # if self.perceptual_weight > 0 and self.perceptual_loss is not None:
+        #     perceptual = self.perceptual_loss(pred, target, mask if mask is not None else torch.ones_like(pred[:, 0]))
+        #     total_loss += self.perceptual_weight * perceptual
+        
         if self.perceptual_weight > 0 and self.perceptual_loss is not None:
-            perceptual = self.perceptual_loss(pred, target, mask if mask is not None else torch.ones_like(pred[:, 0]))
+            if mask is None:
+                mask_for_perc = torch.ones_like(pred[:, 0], dtype=pred.dtype, device=pred.device)
+            else:
+                mask_for_perc = mask
+
+            perceptual = self.perceptual_loss(pred, target, mask_for_perc)
             total_loss += self.perceptual_weight * perceptual
 
         return total_loss
