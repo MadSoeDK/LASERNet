@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import Dataset
 
 import os
-os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+# os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
 
 # Type aliases for clarity
 FieldType = Literal["temperature", "microstructure"]
@@ -43,28 +43,35 @@ def _get_plane_axes(plane: PlaneType) -> Tuple[str, str, str]:
 
 
 def _resolve_data_dir(data_dir: Optional[Union[str, Path]] = None) -> Path:
-    """Resolve data directory from argument or $BLACKHOLE environment variable."""
+    """
+    Resolve data directory.
+
+    Priority:
+      1. Explicit data_dir argument
+      2. Local 'Data' (or 'data') folder in the repository root
+    """
+    # 1) Explicit argument wins
     if data_dir is not None:
         path = Path(data_dir).expanduser()
         if not path.exists():
             raise FileNotFoundError(f"Data directory does not exist: {path}")
         return path
 
-    blackhole = os.environ.get("BLACKHOLE")
-    if not blackhole:
-        raise ValueError(
-            "BLACKHOLE environment variable not set and no data_dir provided"
-        )
+    # 2) Fall back to repo_root/Data or repo_root/data
+    # lasernet/dataset/loading.py -> parents[2] == repo root
+    repo_root = Path(__file__).resolve().parents[2]
 
     for name in ("Data", "data"):
-        candidate = Path(blackhole) / name
+        candidate = repo_root / name
         if candidate.exists():
             return candidate
 
+    # If nothing found, give a clear error
     raise FileNotFoundError(
-        f"Could not find Data directory under $BLACKHOLE: {blackhole}"
+        f"Could not find Data directory.\n"
+        f"Looked for 'Data' and 'data' under: {repo_root}"
     )
-
+    
 
 def _discover_files(data_dir: Path, pattern: str = "Alldata_withpoints_*.csv") -> List[Path]:
     """Discover and sort CSV files by timestep."""

@@ -21,7 +21,8 @@ import torch
 from tqdm import tqdm
 
 import os
-os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+# os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+# os.environ["BLACKHOLE"] = "/home/john-ong/Documents/LASERNet"
 
 
 def discover_files(data_dir: Path, pattern: str = "Alldata_withpoints_*.csv") -> List[Path]:

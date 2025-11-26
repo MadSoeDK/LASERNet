@@ -15,7 +15,8 @@ import torch
 from torch.utils.data import Dataset
 
 import os
-os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+# os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
+
 
 # Type aliases
 PlaneType = Literal["xy", "yz", "xz"]
@@ -111,19 +112,19 @@ class FastMicrostructureSequenceDataset(Dataset):
         self.sequence_length = sequence_length
         self.target_offset = target_offset
 
-        # Resolve processed data directory
+        # Resolve processed data directory (LOCAL-ONLY, no BLACKHOLE)
         if processed_dir is None:
-            blackhole = os.environ.get("BLACKHOLE")
-            if not blackhole:
-                raise ValueError("BLACKHOLE environment variable not set and no processed_dir provided")
-            processed_dir = Path(blackhole) / "processed"
+            # Assume "processed" is in the project root
+            # lasernet/dataset/fast_loading.py -> parents[2] == repo root
+            repo_root = Path(__file__).resolve().parents[2]
+            processed_dir = repo_root / "processed"
         else:
             processed_dir = Path(processed_dir)
 
         if not processed_dir.exists():
             raise FileNotFoundError(
                 f"Preprocessed data directory not found: {processed_dir}\n"
-                f"Please run: python -m lasernet.dataset.preprocess_data"
+                "Expected coordinates.pt, temperature.pt, microstructure.pt in that folder."
             )
 
         print(f"\nLoading preprocessed data from: {processed_dir}")
