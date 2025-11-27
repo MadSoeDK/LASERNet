@@ -116,7 +116,7 @@ class FastMicrostructureSequenceDataset(Dataset):
             blackhole = os.environ.get("BLACKHOLE")
             if not blackhole:
                 raise ValueError("BLACKHOLE environment variable not set and no processed_dir provided")
-            processed_dir = Path(blackhole) / "processed"
+            processed_dir = Path(blackhole) / "processed" / "data"
         else:
             processed_dir = Path(processed_dir)
 

@@ -6,6 +6,7 @@
 init:
 	@command -v uv >/dev/null 2>&1 || (echo "uv not found, installing..." && curl -LsSf https://astral.sh/uv/install.sh | sh)
 	uv sync
+	uv run python -m ipykernel install --user --name=.venv
 
 # Default target: show help
 help:
@@ -26,6 +27,9 @@ help:
 	@echo "  make clean          - Remove logs, runs, and cache files"
 
 # ==================== BATCH JOB SUBMISSION ====================
+
+notebook:
+	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebook.ipynb
 
 train:
 	@echo "Submitting temperature prediction job to HPC..."

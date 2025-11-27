@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-11-27_15-46-21",
+  "model": {
+    "name": "MicrostructureCNN_LSTM",
+    "parameters": 440425,
+    "input_channels": 10,
+    "future_channels": 1,
+    "output_channels": 9
+  },
+  "training": {
+    "epochs": 50,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "optimizer": "Adam",
+    "loss": "CombinedLoss",
+    "loss_params": {
+      "solidification_weight": 0.7,
+      "global_weight": 0.3,
+      "T_solidus": 1530.0,
+      "T_liquidus": 1650.0,
+      "weight_type": "gaussian",
+      "weight_scale": 0.1,
+      "base_weight": 0.1
+    }
+  },
+  "dataset": {
+    "plane": "xz",
+    "sequence_length": 4,
+    "target_offset": 1,
+    "train_samples": 658,
+    "val_samples": 94,
+    "test_samples": 94
+  },
+  "device": "cuda"
+}

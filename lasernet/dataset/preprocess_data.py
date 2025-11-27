@@ -124,12 +124,15 @@ def load_all_data(
             temp_data[t_idx, x_indices, y_indices, z_indices] = torch.from_numpy(temp_values)
 
         # Extract microstructure (9 IPF channels + origin)
-        for ch in range(10):
-            if ch < 9:
-                col = f"IPF_{ch}"
-            else:
-                col = "OriginIndex"
+        # IPF channels: ipf_x:0, ipf_x:1, ipf_x:2, ipf_y:0, ipf_y:1, ipf_y:2, ipf_z:0, ipf_z:1, ipf_z:2
+        ipf_cols = [
+            "ipf_x:0", "ipf_x:1", "ipf_x:2",
+            "ipf_y:0", "ipf_y:1", "ipf_y:2",
+            "ipf_z:0", "ipf_z:1", "ipf_z:2",
+            "ori_inds",  # Origin index
+        ]
 
+        for ch, col in enumerate(ipf_cols):
             if col in df.columns:
                 micro_values = df[col].values.astype(np.float32)
                 micro_data[t_idx, x_indices, y_indices, z_indices, ch] = torch.from_numpy(micro_values)
@@ -223,7 +226,7 @@ def main():
         return
 
     data_dir = Path(blackhole) / "Data"
-    output_dir = Path(blackhole) / "processed"
+    output_dir = Path(blackhole) / "processed" / "data"
     downsample_factor = 2
 
     # Check if data directory exists
