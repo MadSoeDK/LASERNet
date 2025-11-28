@@ -81,7 +81,7 @@ class FastMicrostructureSequenceDataset(Dataset):
             - 'context_micro': [seq_len, 9, H, W] - context microstructure frames (IPF only)
             - 'future_temp': [1, H, W] - next temperature frame
             - 'target_micro': [9, H, W] - target microstructure frame (IPF only)
-            - 'target_mask': [H, W] - valid pixel mask (all True for preprocessed data)
+            - 'target_mask': [H, W] - valid pixel mask (True where data exists)
             - 'slice_coord': slice coordinate (float)
             - 'timestep_start': starting timestep index
             - 'context_timesteps': context timestep indices
@@ -144,8 +144,20 @@ class FastMicrostructureSequenceDataset(Dataset):
         micro_file = processed_dir / "microstructure.pt"
         self.micro_data = torch.load(micro_file)
 
-        print(f"  Temperature: {self.temp_data.shape} ({self.temp_data.element_size() * self.temp_data.numel() / 1024**2:.1f} MB)")
-        print(f"  Microstructure: {self.micro_data.shape} ({self.micro_data.element_size() * self.micro_data.numel() / 1024**2:.1f} MB)")
+        # Load mask data [T, X, Y, Z] - indicates which pixels have valid data
+        mask_file = processed_dir / "mask.pt"
+        if mask_file.exists():
+            self.mask_data = torch.load(mask_file)
+            print(f"  Temperature: {self.temp_data.shape} ({self.temp_data.element_size() * self.temp_data.numel() / 1024**2:.1f} MB)")
+            print(f"  Microstructure: {self.micro_data.shape} ({self.micro_data.element_size() * self.micro_data.numel() / 1024**2:.1f} MB)")
+            print(f"  Mask: {self.mask_data.shape} ({self.mask_data.element_size() * self.mask_data.numel() / 1024**2:.1f} MB)")
+        else:
+            # Fallback: assume all pixels are valid (old preprocessed files)
+            print("  WARNING: No mask.pt found - assuming all pixels are valid")
+            print("  Please re-run preprocessing to generate mask data")
+            self.mask_data = torch.ones_like(self.temp_data, dtype=torch.bool)
+            print(f"  Temperature: {self.temp_data.shape} ({self.temp_data.element_size() * self.temp_data.numel() / 1024**2:.1f} MB)")
+            print(f"  Microstructure: {self.micro_data.shape} ({self.micro_data.element_size() * self.micro_data.numel() / 1024**2:.1f} MB)")
 
         # Get plane axes
         self.width_axis, self.height_axis, self.fixed_axis = _get_plane_axes(plane)
@@ -231,11 +243,12 @@ class FastMicrostructureSequenceDataset(Dataset):
                 return data[:, slice_idx, :, :, :]  # [T, Y, Z, C]
 
         elif self.plane == "xz":
-            # XZ plane: slice along Y, result is [T, X, Z] or [T, X, Z, C]
+            # XZ plane: slice along Y, result is [T, Z, X] or [T, Z, X, C]
+            # (height=Z, width=X as per _get_plane_axes)
             if data.ndim == 4:
-                return data[:, :, slice_idx, :]  # [T, X, Z]
+                return data[:, :, slice_idx, :].transpose(1, 2)  # [T, Z, X]
             else:
-                return data[:, :, slice_idx, :, :]  # [T, X, Z, C]
+                return data[:, :, slice_idx, :, :].transpose(1, 2)  # [T, Z, X, C]
 
     def __len__(self) -> int:
         """Total samples = valid_sequences × num_slices"""
@@ -275,8 +288,9 @@ class FastMicrostructureSequenceDataset(Dataset):
         context_micro = context_micro_full[..., :9].permute(0, 3, 1, 2)  # [seq_len, 9, H, W]
         target_micro = target_micro_full[..., :9].permute(2, 0, 1)  # [9, H, W]
 
-        # Create mask (all valid for preprocessed data)
-        mask = torch.ones(target_micro.shape[1:], dtype=torch.bool)  # [H, W]
+        # Extract mask slice [H, W] - use target timestep's mask
+        mask_slice = self._extract_plane_slice(self.mask_data, slice_idx)
+        mask = mask_slice[target_t_idx]  # [H, W]
 
         # Get slice coordinate
         slice_coord = float(self.slice_coords[slice_idx])

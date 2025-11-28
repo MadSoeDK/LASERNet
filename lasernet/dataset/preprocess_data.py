@@ -72,13 +72,14 @@ def load_all_data(
     x_coords: np.ndarray,
     y_coords: np.ndarray,
     z_coords: np.ndarray,
-) -> Tuple[torch.Tensor, torch.Tensor, List[int]]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[int]]:
     """
     Load all CSV files and extract temperature + microstructure fields.
 
     Returns:
         temp_data: [T, X, Y, Z] temperature tensor
         micro_data: [T, X, Y, Z, 10] microstructure tensor (9 IPF + origin)
+        mask_data: [T, X, Y, Z] boolean mask indicating valid data points
         timesteps: list of timestep indices
     """
 
@@ -96,6 +97,7 @@ def load_all_data(
     # Initialize tensors
     temp_data = torch.zeros((T, X, Y, Z), dtype=torch.float32)
     micro_data = torch.zeros((T, X, Y, Z, 10), dtype=torch.float32)
+    mask_data = torch.zeros((T, X, Y, Z), dtype=torch.bool)  # Track valid pixels
     timesteps = []
 
     # Load each CSV file
@@ -117,6 +119,9 @@ def load_all_data(
         x_indices = df['Points:0'].map(x_map).values
         y_indices = df['Points:1'].map(y_map).values
         z_indices = df['Points:2'].map(z_map).values
+
+        # Mark these points as valid in the mask
+        mask_data[t_idx, x_indices, y_indices, z_indices] = True
 
         # Extract temperature
         if 'T' in df.columns:
@@ -141,8 +146,10 @@ def load_all_data(
     print(f"  Temperature memory: {temp_data.element_size() * temp_data.numel() / 1024**2:.1f} MB")
     print(f"  Microstructure shape: {tuple(micro_data.shape)}")
     print(f"  Microstructure memory: {micro_data.element_size() * micro_data.numel() / 1024**2:.1f} MB")
+    print(f"  Mask shape: {tuple(mask_data.shape)}")
+    print(f"  Mask memory: {mask_data.element_size() * mask_data.numel() / 1024**2:.1f} MB")
 
-    return temp_data, micro_data, timesteps
+    return temp_data, micro_data, mask_data, timesteps
 
 
 def save_preprocessed_data(
@@ -177,7 +184,7 @@ def save_preprocessed_data(
     x_coords, y_coords, z_coords = discover_coordinates(csv_files[0], downsample_factor)
 
     # Load all data
-    temp_data, micro_data, timesteps = load_all_data(csv_files, x_coords, y_coords, z_coords)
+    temp_data, micro_data, mask_data, timesteps = load_all_data(csv_files, x_coords, y_coords, z_coords)
 
     print(f"\nFound {len(timesteps)} timesteps: {timesteps}")
 
@@ -204,6 +211,11 @@ def save_preprocessed_data(
     micro_file = output_dir / "microstructure.pt"
     torch.save(micro_data, micro_file)
     print(f"  Microstructure: {micro_file}")
+
+    # Save mask data
+    mask_file = output_dir / "mask.pt"
+    torch.save(mask_data, mask_file)
+    print(f"  Mask: {mask_file}")
 
     elapsed = time.time() - start_time
     print()

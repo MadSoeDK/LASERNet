@@ -31,6 +31,9 @@ help:
 notebook:
 	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebook.ipynb
 
+MICROnet_notebook:
+	uv run jupyter nbconvert --to notebook --execute --inplace --debug MICROnet.ipynb
+
 train:
 	@echo "Submitting temperature prediction job to HPC..."
 	bsub < batch/scripts/train.sh
