@@ -1,34 +1,64 @@
 # LASERNet
 
-Deep learning models for predicting temperature and microstructure evolution in laser welding simulations.
+Deep learning models for predicting microstructure evolution in laser welding simulations using CNN-LSTM and PredRNN architectures.
 
 ## Project Overview
 
-LASERNet uses CNN-LSTM architectures to predict spatiotemporal evolution from 3D point cloud data:
-
-- **Temperature Prediction**: Predict next temperature field from past temperature sequences
-- **Microstructure Prediction**: Predict next microstructure from past temperature + microstructure, conditioned on future temperature
+LASERNet trains and compares multiple deep learning models to predict microstructure evolution from temperature and past microstructure sequences. The models learn spatiotemporal patterns from 3D point cloud data extracted from laser welding simulations.
 
 ## Quick Start
 
-### Common Commands (Makefile)
+### Setup
+
+```bash
+# Install dependencies and setup environment
+make init
+```
+
+This will:
+- Install `uv` package manager if not available
+- Sync all dependencies from `pyproject.toml`
+- Install Jupyter kernel for the virtual environment
+
+### Running the Models
+
+**The main entry point is the [MICROnet.ipynb](MICROnet.ipynb) notebook**, which trains and evaluates multiple model configurations:
+
+```bash
+# Execute the notebook locally
+make MICROnet_notebook
+
+# Or submit to HPC job queue
+make submit_MICROnet_notebook
+```
+
+### Viewing Results
+
+After running the notebook, results are available in two places:
+
+1. **In the notebook itself** - View training plots, predictions, and comparisons directly in [MICROnet.ipynb](MICROnet.ipynb)
+2. **In the output directory** - All artifacts saved to `MICROnet_output/`:
+   ```
+   MICROnet_output/
+   ├── <model_name>/
+   │   ├── config.json                    # Model configuration
+   │   ├── history.json                   # Training history
+   │   ├── training_losses.png            # Loss curves
+   │   ├── pred_t23_s47.png              # Prediction visualization
+   │   ├── solidification_mask_t23_s47.png  # Solidification mask (combined loss models)
+   │   └── checkpoints/
+   │       ├── best_model.pt             # Best validation checkpoint
+   │       └── final_model.pt            # Final model
+   └── all_models_comparison.png          # Comparison across all models
+   ```
+
+### Other Commands
 
 ```bash
 # Show all available commands
 make help
 
-# Setup environment
-make init          # Syncs the uv env
-                   # Installs uv if no bin available
-
-# Test on GPU interactively
-make test-a100     # A100 GPU (recommended)
-
-# Submit batch jobs to HPC
-make train         # Temperature prediction
-make train-micro   # Microstructure prediction
-
-# Clean up
+# Clean up logs and cache
 make clean
 ```
 
@@ -36,138 +66,112 @@ make clean
 
 ```
 LASERNet/
+├── MICROnet.ipynb               # Main notebook - train & evaluate models
+├── MICROnet_output/             # Output directory for all results
 ├── lasernet/
-│   ├── model/                    # Neural network architectures
-│   │   ├── CNN_LSTM.py          # Temperature prediction model
-│   │   └── MicrostructureCNN_LSTM.py  # Microstructure prediction model
-│   ├── dataset/                  # Data loading and preprocessing
-│   │   └── loading.py           # Dataset classes
-│   └── utils/                    # Visualization utilities
-│       ├── plot.py              # Loss curves, sequences
-│       └── visualize.py         # Model predictions
-├── batch/scripts/               # HPC job scripts
-│   ├── train.sh                # Temperature training job
-│   └── train_microstructure.sh # Microstructure training job
-├── train.py                     # Temperature training script
-├── train_microstructure.py      # Microstructure training script
-├── test_microstructure.py       # Quick test script
+│   ├── model/                   # Neural network architectures
+│   │   ├── MicrostructureCNN_LSTM.py   # CNN-LSTM model
+│   │   ├── MicrostructurePredRNN.py    # PredRNN model
+│   │   └── losses.py                   # Loss functions (MSE, Combined)
+│   ├── dataset/                 # Data loading and preprocessing
+│   │   ├── loading.py          # Dataset classes
+│   │   └── fast_loading.py     # Fast loading from preprocessed data
+│   └── utils/                   # Visualization utilities
+│       ├── plot.py             # Loss curves
+│       └── visualize.py        # Prediction visualizations
+├── microstructure_training.py   # Training and prediction utilities
+├── batch/scripts/               # HPC job submission scripts
 ├── makefile                     # Build commands
-└── claude.md                    # Important notes for AI assistants
+└── pyproject.toml              # Dependencies
 ```
 
 ## Models
 
-### 1. Temperature Prediction (CNN_LSTM)
+The [MICROnet.ipynb](MICROnet.ipynb) notebook trains and compares **10 different model configurations**:
 
-Predicts next temperature frame from past temperature sequence.
+### CNN-LSTM Models:
+1. CNN-LSTM seq=3, MSE loss
+2. CNN-LSTM seq=4, MSE loss
+3. CNN-LSTM seq=4, Combined loss (T_solidus=1560, T_liquidus=1620)
+4. CNN-LSTM seq=4, Combined loss (T_solidus=1530, T_liquidus=1650)
+5. CNN-LSTM seq=4, Combined loss (T_solidus=1500, T_liquidus=1680)
 
-- **Input**: `[batch, seq_len, 1, H, W]` - temperature sequence
-- **Output**: `[batch, 1, H, W]` - predicted next frame
-- **Parameters**: ~350K
+### PredRNN Models:
+6. PredRNN seq=3, MSE loss
+7. PredRNN seq=4, MSE loss
+8. PredRNN seq=4, Combined loss (T_solidus=1560, T_liquidus=1620)
+9. PredRNN seq=4, Combined loss (T_solidus=1530, T_liquidus=1650)
+10. PredRNN seq=4, Combined loss (T_solidus=1500, T_liquidus=1680)
 
-```bash
-# Train
-python train.py --epochs 100 --batch-size 16
+### Model Details
 
-# Or submit to HPC
-make train
-```
+**CNN-LSTM** - Convolutional LSTM for spatiotemporal prediction
+- Parameters: ~500K
+- Input: Past temperature (1 channel) + microstructure (9 IPF channels)
+- Future conditioning: Next temperature field
+- Output: Predicted microstructure (9 IPF channels)
 
-### 2. Microstructure Prediction (MicrostructureCNN_LSTM)
+**PredRNN** - Predictive RNN with spatiotemporal memory
+- Parameters: ~800K
+- Same input/output structure as CNN-LSTM
+- Enhanced spatiotemporal memory mechanism
 
-Predicts next microstructure from past temperature + microstructure, conditioned on future temperature.
+**MSE Loss** - Standard mean squared error on all pixels
 
-- **Input Context**: `[batch, seq_len, 10, H, W]` - past temp (1) + microstructure (9)
-- **Input Future**: `[batch, 1, H, W]` - next temperature (conditioning)
-- **Output**: `[batch, 9, H, W]` - predicted microstructure (9 IPF channels)
-- **Parameters**: ~500K
-
-```bash
-# Train
-python train_microstructure.py --epochs 100 --batch-size 16
-
-# Or submit to HPC
-make train-micro
-```
+**Combined Loss** - Weighted combination focusing on solidification regions
+- Gaussian weighting in solidification temperature range (T_solidus to T_liquidus)
+- Higher weight where microstructure evolution is most active
+- Different temperature ranges tested to find optimal solidification zone
 
 ## Data
 
-Data is stored in `$BLACKHOLE/Data/Alldata_withpoints_*.csv` (automatically configured).
+Data is stored in `$BLACKHOLE/Data/` and automatically loaded by the notebook:
 
-- Each CSV file = one timestep
-- Contains: 3D coordinates, temperature, microstructure (IPF channels)
-- Models extract 2D slices from 3D point clouds
+- **Raw data**: `Alldata_withpoints_*.csv` files (one per timestep)
+  - Contains: 3D coordinates, temperature, microstructure (IPF channels)
 
-## Training Options
+- **Preprocessed data**: `processed/data/` (for fast loading)
+  - Pre-extracted 2D slices from 3D point clouds
+  - Significantly faster loading times
 
-### Temperature Model
+The notebook automatically detects and uses preprocessed data if available, otherwise falls back to loading from CSV files.
 
-```bash
-python train.py \
-  --epochs 100 \
-  --batch-size 16 \
-  --lr 1e-3 \
-  --seq-length 3 \
-  --plane xz \
-  --split-ratio "12,6,6"
-```
+### Data Split
 
-### Microstructure Model
+- Train: 50% of timesteps (12 timesteps)
+- Validation: 25% of timesteps (6 timesteps)
+- Test: 25% of timesteps (6 timesteps)
+- Plane: XZ cross-sections
 
-```bash
-python train_microstructure.py \
-  --epochs 100 \
-  --batch-size 16 \
-  --lr 1e-3 \
-  --seq-length 3 \
-  --plane xz \
-  --split-ratio "12,6,6"
-```
+## Training Configuration
 
-### Batch Job Submission
+The notebook uses the following default settings:
 
-```bash
-# Submit job
-make train-micro
-
-# Check status
-bjobs
-
-# View output
-tail -f logs/lasernet_micro_<JOBID>.out
-```
-
-## Output
-
-Training creates timestamped directories:
-
-```
-runs_microstructure/<timestamp>/
-├── config.json              # Training configuration
-├── history.json             # Loss history
-├── training_losses.png      # Loss curves
-├── test_results.json        # Test metrics
-└── checkpoints/
-    ├── best_model.pt        # Best validation checkpoint
-    └── final_model.pt       # Final model
-```
+- **Epochs**: 500 (with early stopping, patience=15)
+- **Batch size**: 16
+- **Learning rate**: 1e-3
+- **Optimizer**: Adam
+- **Device**: Automatic GPU detection (CUDA if available)
 
 ## Performance
 
-- **Pre-loading**: ~10 minutes (one-time, reads all CSVs)
+- **Fast loading** (preprocessed): Instant
+- **Standard loading** (CSV): ~10 minutes (one-time preprocessing)
 - **Training**: ~2s per epoch (A100 GPU, batch_size=16)
-- **100 epochs**: ~15 minutes total
+- **500 epochs**: ~15-20 minutes per model (typically stops earlier with early stopping)
 
 ## Requirements
 
-See [pyproject.toml](pyproject.toml) for full dependency list.
+Dependencies are managed via `uv` and defined in [pyproject.toml](pyproject.toml).
 
 Key dependencies:
 - PyTorch 2.9+
 - NumPy, Pandas, SciPy
 - Matplotlib
+- Jupyter, IPython
 - tqdm
 
-## Documentation
-
-- [claude.md](claude.md) - Important notes for AI assistants
+Install with:
+```bash
+make init
+```
