@@ -204,11 +204,13 @@ class CombinedLoss(nn.Module):
         weight_type: str = "gaussian",
         weight_scale: float = 0.1,
         base_weight: float = 0.1,
+        return_components: bool = False,
     ):
         super().__init__()
 
         self.solidification_weight = solidification_weight
         self.global_weight = global_weight
+        self.return_components = return_components
 
         self.solidification_loss = SolidificationWeightedMSELoss(
             T_solidus=T_solidus,
@@ -226,7 +228,7 @@ class CombinedLoss(nn.Module):
         target: torch.Tensor,
         temperature: torch.Tensor,
         mask: torch.Tensor,
-    ) -> torch.Tensor:
+    ):
         """
         Compute combined loss.
 
@@ -237,7 +239,10 @@ class CombinedLoss(nn.Module):
             mask: Valid region mask [B, H, W]
 
         Returns:
-            loss: Scalar combined loss
+            If return_components is False:
+                loss: Scalar combined loss
+            If return_components is True:
+                tuple: (total_loss, solidification_loss, global_loss)
         """
         # Solidification front weighted loss
         solid_loss = self.solidification_loss(pred, target, temperature, mask)
@@ -255,7 +260,10 @@ class CombinedLoss(nn.Module):
             self.global_weight * global_loss
         )
 
-        return total_loss
+        if self.return_components:
+            return total_loss, solid_loss, global_loss
+        else:
+            return total_loss
 
 
 class GradientPenaltyLoss(nn.Module):

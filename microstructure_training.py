@@ -207,7 +207,16 @@ def train_microstructure(
     Returns:
         Dictionary with training history
     """
+    # Determine if we're using CombinedLoss with component tracking
+    track_components = isinstance(criterion, CombinedLoss)
+
     history: Dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+    if track_components:
+        history["train_solidification_loss"] = []
+        history["train_global_loss"] = []
+        history["val_solidification_loss"] = []
+        history["val_global_loss"] = []
+
     best_val_loss = float('inf')
     epochs_without_improvement = 0
 
@@ -215,6 +224,8 @@ def train_microstructure(
         # ==================== TRAINING ====================
         model.train()
         train_loss = 0.0
+        train_solid_loss = 0.0
+        train_global_loss = 0.0
         num_train_samples = 0
 
         train_pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]", leave=False)
@@ -231,7 +242,16 @@ def train_microstructure(
             pred_micro = model(context, future_temp)
 
             if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
-                loss = criterion(pred_micro, target_micro, future_temp, target_mask)
+                result = criterion(pred_micro, target_micro, future_temp, target_mask)
+
+                # Handle component tracking for CombinedLoss
+                if track_components and isinstance(result, tuple):
+                    loss, solid_loss, global_loss = result
+                    batch_size = context.size(0)
+                    train_solid_loss += solid_loss.item() * batch_size
+                    train_global_loss += global_loss.item() * batch_size
+                else:
+                    loss = result
             else:
                 mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
                 loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
@@ -248,9 +268,15 @@ def train_microstructure(
         avg_train_loss = train_loss / max(1, num_train_samples)
         history["train_loss"].append(avg_train_loss)
 
+        if track_components:
+            history["train_solidification_loss"].append(train_solid_loss / max(1, num_train_samples))
+            history["train_global_loss"].append(train_global_loss / max(1, num_train_samples))
+
         # ==================== VALIDATION ====================
         model.eval()
         val_loss = 0.0
+        val_solid_loss = 0.0
+        val_global_loss = 0.0
         num_val_samples = 0
 
         with torch.no_grad():
@@ -266,7 +292,16 @@ def train_microstructure(
                 pred_micro = model(context, future_temp)
 
                 if isinstance(criterion, (SolidificationWeightedMSELoss, CombinedLoss)):
-                    loss = criterion(pred_micro, target_micro, future_temp, target_mask)
+                    result = criterion(pred_micro, target_micro, future_temp, target_mask)
+
+                    # Handle component tracking for CombinedLoss
+                    if track_components and isinstance(result, tuple):
+                        loss, solid_loss, global_loss = result
+                        batch_size = context.size(0)
+                        val_solid_loss += solid_loss.item() * batch_size
+                        val_global_loss += global_loss.item() * batch_size
+                    else:
+                        loss = result
                 else:
                     mask_expanded = target_mask.unsqueeze(1).expand_as(target_micro)
                     loss = criterion(pred_micro[mask_expanded], target_micro[mask_expanded])
@@ -279,6 +314,10 @@ def train_microstructure(
 
         avg_val_loss = val_loss / max(1, num_val_samples)
         history["val_loss"].append(avg_val_loss)
+
+        if track_components:
+            history["val_solidification_loss"].append(val_solid_loss / max(1, num_val_samples))
+            history["val_global_loss"].append(val_global_loss / max(1, num_val_samples))
 
         print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.6f}, val loss={avg_val_loss:.6f}")
 
@@ -457,15 +496,15 @@ def save_prediction_visualization(
     # Create figure
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    axes[0].imshow(target_rgb_masked, interpolation='nearest')
+    axes[0].imshow(target_rgb_masked, interpolation='nearest', origin='lower')
     axes[0].set_title('Ground Truth', fontsize=12, fontweight='bold')
     axes[0].axis('off')
 
-    axes[1].imshow(pred_rgb_masked, interpolation='nearest')
+    axes[1].imshow(pred_rgb_masked, interpolation='nearest', origin='lower')
     axes[1].set_title('Prediction', fontsize=12, fontweight='bold')
     axes[1].axis('off')
 
-    im = axes[2].imshow(diff_masked, cmap='RdYlGn_r', interpolation='nearest')
+    im = axes[2].imshow(diff_masked, cmap='RdYlGn_r', interpolation='nearest', origin='lower')
     axes[2].set_title('Difference (MSE)', fontsize=12, fontweight='bold')
     axes[2].axis('off')
     plt.colorbar(im, ax=axes[2], fraction=0.046, pad=0.04)
