@@ -12,10 +12,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from lasernet.dataset import SliceSequenceDataset, SplitType
-from lasernet.model.CNN_LSTM import CNN_LSTM
-from lasernet.utils import create_training_report, plot_losses, visualize_prediction
-from lasernet.utils.device import get_device
+from lasernet.micronet.dataset import SliceSequenceDataset, SplitType
+from lasernet.micronet.model.CNN_LSTM import CNN_LSTM
+from lasernet.micronet.utils import create_training_report, plot_losses, visualize_prediction
+from lasernet.micronet.utils.device import get_device
 
 def train_tempnet(
     model: CNN_LSTM,

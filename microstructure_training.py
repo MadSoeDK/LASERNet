@@ -20,14 +20,14 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from lasernet.dataset import MicrostructureSequenceDataset
-from lasernet.dataset.fast_loading import FastMicrostructureSequenceDataset
-from lasernet.dataset.loading import PointCloudDataset
-from lasernet.model.MicrostructureCNN_LSTM import MicrostructureCNN_LSTM
-from lasernet.model.MicrostructurePredRNN import MicrostructurePredRNN
-from lasernet.model.losses import SolidificationWeightedMSELoss, CombinedLoss
-from lasernet.utils import plot_losses
-from lasernet.utils.device import get_device
+from lasernet.micronet.dataset import MicrostructureSequenceDataset
+from lasernet.micronet.dataset.fast_loading import FastMicrostructureSequenceDataset
+from lasernet.micronet.dataset.loading import PointCloudDataset
+from lasernet.micronet.model.MicrostructureCNN_LSTM import MicrostructureCNN_LSTM
+from lasernet.micronet.model.MicrostructurePredRNN import MicrostructurePredRNN
+from lasernet.micronet.model.losses import SolidificationWeightedMSELoss, CombinedLoss
+from lasernet.micronet.utils import plot_losses
+from lasernet.micronet.utils.device import get_device
 
 
 def load_datasets_from_checkpoint(

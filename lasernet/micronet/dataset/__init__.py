@@ -1,6 +1,6 @@
 """LASERNet dataset module for point cloud data loading."""
 
-from lasernet.dataset.loading import (
+from lasernet.micronet.dataset.loading import (
     FieldType,
     MicrostructureSequenceDataset,
     PlaneType,
@@ -10,7 +10,7 @@ from lasernet.dataset.loading import (
     TemperatureSequenceDataset,
 )
 
-from lasernet.dataset.fast_loading import (
+from lasernet.micronet.dataset.fast_loading import (
     FastMicrostructureSequenceDataset,
 )
 

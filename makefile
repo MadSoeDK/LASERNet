@@ -2,7 +2,7 @@
 # Commands for training, testing, and running on HPC interactive nodes
 
 # Environment variables
-export BLACKHOLE := /dtu/blackhole/06/168550
+export BLACKHOLE := /Users/bn/dtu/LASERNet/BLACKHOLE
 
 .PHONY: help init clean MICROnet_notebook submit_MICROnet_notebook
 
