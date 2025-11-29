@@ -1,3 +1,11 @@
 .DS_Store
 .venv
 data
+figures/
+__pycache__/
+logs/
+data/
+.DS_Store
+CLAUDE.md
+runs/
+*.pt
