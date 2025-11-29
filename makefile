@@ -4,7 +4,7 @@
 # Environment variables
 export BLACKHOLE := /dtu/blackhole/06/168550
 
-.PHONY: help clean
+.PHONY: help init clean MICROnet_notebook submit_MICROnet_notebook
 
 init:
 	@command -v uv >/dev/null 2>&1 || (echo "uv not found, installing..." && curl -LsSf https://astral.sh/uv/install.sh | sh)

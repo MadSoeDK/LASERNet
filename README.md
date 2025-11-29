@@ -20,6 +20,21 @@ This will:
 - Sync all dependencies from `pyproject.toml`
 - Install Jupyter kernel for the virtual environment
 
+### Environment Configuration
+
+The project uses the `BLACKHOLE` environment variable to locate data files. This is configured in the [makefile](makefile):
+
+```makefile
+export BLACKHOLE := /dtu/blackhole/06/168550
+```
+
+**To use your own data location:**
+1. Edit the `BLACKHOLE` path in [makefile](makefile:5)
+2. Ensure you have read access to the specified path
+3. Your data directory should contain `Data/` with CSV files or `processed/data/` with preprocessed files
+
+**Default path**: If kept as `/dtu/blackhole/06/168550`, you need read access to this DTU storage location.
+
 ### Running the Models
 
 **The main entry point is the [MICROnet.ipynb](MICROnet.ipynb) notebook**, which trains and evaluates multiple model configurations:
