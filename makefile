@@ -1,7 +1,10 @@
 # LASERNet Makefile
 # Commands for training, testing, and running on HPC interactive nodes
 
-.PHONY: help train train-micro-net-cnn-lstm test test-micro test-volta test-sxm2 test-a100 submit submit-micro clean
+# Environment variables
+export BLACKHOLE := /dtu/blackhole/06/168550
+
+.PHONY: help clean
 
 init:
 	@command -v uv >/dev/null 2>&1 || (echo "uv not found, installing..." && curl -LsSf https://astral.sh/uv/install.sh | sh)

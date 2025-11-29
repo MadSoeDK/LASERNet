@@ -14,8 +14,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-import os
-os.environ["BLACKHOLE"] = "/dtu/blackhole/06/168550"
 
 # Type aliases
 PlaneType = Literal["xy", "yz", "xz"]
