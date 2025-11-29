@@ -16,6 +16,19 @@ from lasernet.dataset import SliceSequenceDataset
 from lasernet.model.CNN_LSTM import CNN_LSTM
 from lasernet.utils import create_training_report, plot_losses, visualize_prediction
 
+import numpy as np
+import random
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 def train_tempnet(
     model: CNN_LSTM,
     train_loader: DataLoader,
@@ -23,6 +36,7 @@ def train_tempnet(
     optimizer: optim.Optimizer,
     criterion: nn.Module,
     mae_fn: nn.Module,
+    mse_fn: nn.Module,
     device: torch.device,
     epochs: int,
     run_dir: Path,
@@ -30,7 +44,8 @@ def train_tempnet(
     note: str = ""
 ) -> Dict[str, list[float]]:
 
-    history: Dict[str, list[float]] = {"train_loss": [], "val_loss": [], "train_mae": [], "val_mae": [] }
+    history: Dict[str, list[float]] = {"train_loss": [], "val_loss": [], "train_mae": [], "val_mae": [],     "train_mse": [],
+    "val_mse": [],}
     best_val_loss = float('inf')
 
     for epoch in range(epochs):
@@ -39,6 +54,8 @@ def train_tempnet(
         train_loss = 0.0
         num_train_samples = 0
         train_mae = 0.0
+        train_mse  = 0.0
+
 
         # Training loop with progress bar
         train_pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]", leave=False)
@@ -55,7 +72,7 @@ def train_tempnet(
 
             loss = criterion(pred[mask_expanded], target[mask_expanded])
             #loss = (0.5 * nn.functional.mse_loss(pred[mask_expanded], target[mask_expanded])+ 0.5 * nn.functional.l1_loss(pred[mask_expanded], target[mask_expanded]))
-
+            mse  = mse_fn(pred[mask_expanded], target[mask_expanded]).item()
             mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
 
 
@@ -65,6 +82,7 @@ def train_tempnet(
             batch_size = context.size(0)
             train_loss += loss.item() * batch_size
             train_mae += mae * batch_size
+            train_mse  += mse * batch_size
             num_train_samples += batch_size
 
             # Update progress bar with current loss
@@ -72,6 +90,9 @@ def train_tempnet(
 
         avg_train_loss = train_loss / max(1, num_train_samples)
         avg_train_mae = train_mae / max(1, num_train_samples)
+        avg_train_mse = train_mse / num_train_samples
+        history["train_mse"].append(avg_train_mse)
+
         history["train_mae"].append(avg_train_mae)
 
         history["train_loss"].append(avg_train_loss)
@@ -81,6 +102,7 @@ def train_tempnet(
         val_loss = 0.0
         num_val_samples = 0
         val_mae = 0.0
+        val_mse  = 0.0
 
         with torch.no_grad():
             val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{epochs} [Val]", leave=False)
@@ -95,18 +117,24 @@ def train_tempnet(
                 loss = criterion(pred[mask_expanded], target[mask_expanded])
                 #loss = (0.5 * nn.functional.mse_loss(pred[mask_expanded], target[mask_expanded])+ 0.5 * nn.functional.l1_loss(pred[mask_expanded], target[mask_expanded]))
                 mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
+                mse = mse_fn(pred[mask_expanded], target[mask_expanded]).item()
+
 
 
                 batch_size = context.size(0)
                 val_loss += loss.item() * batch_size
                 val_mae += mae * batch_size
+                val_mse += mse * batch_size
                 num_val_samples += batch_size
 
                 val_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
         avg_val_loss = val_loss / max(1, num_val_samples)
+        avg_val_mse = val_mse / num_val_samples
         avg_val_mae = val_mae / max(1, num_val_samples)
         history["val_mae"].append(avg_val_mae)
+        history["val_mse"].append(avg_val_mse)
+
 
         history["val_loss"].append(avg_val_loss)
 
@@ -128,7 +156,7 @@ def train_tempnet(
                 'train_mae': avg_train_mae,
                 'val_mae': avg_val_mae,
             }, run_dir / "checkpoints" / "best_model.pt")
-            print(f"  → Best model saved (val loss: {avg_val_loss:.4f}, val MAE: {avg_val_mae:.2f})")
+            print(f"  → Best model saved (val loss: {avg_val_loss:.4f}, val MAE: {avg_val_mae:.2f}), val MSE: {avg_val_mse:.4f})")
             #print(f"  → Best model saved (val loss: {avg_val_loss:.4f})")
 
             with open(run_dir / "best_summary.txt", "w") as f:
@@ -136,8 +164,12 @@ def train_tempnet(
                 f.write(f"Best epoch: {epoch + 1}\n")
                 f.write(f"Val Loss (MSE): {avg_val_loss:.4f}\n")
                 f.write(f"Val MAE:        {avg_val_mae:.2f}\n")
-                f.write(f"Train Loss:     {avg_train_loss:.4f}\n")
+                f.write(f"Train Loss (MSE):{avg_train_loss:.4f}\n")
                 f.write(f"Train MAE:      {avg_train_mae:.2f}\n")
+                f.write(f"Val MSE: {avg_val_mse:.4f}\n")
+                f.write(f"Train MSE: {avg_train_mse:.4f}\n")
+
+
 
         # Visualize activations periodically
         if visualize_every > 0 and (epoch + 1) % visualize_every == 0:
@@ -252,9 +284,6 @@ def get_device() -> torch.device:
     if torch.cuda.is_available():
         device = torch.device("cuda")
         print("Using GPU")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
-        print("Using Apple Silicon GPU (MPS)")
     else:
         device = torch.device("cpu")
         print("Using CPU only")
@@ -262,6 +291,8 @@ def get_device() -> torch.device:
 
 
 def main() -> None:
+    set_seed(42)
+
     parser = argparse.ArgumentParser(description="Train the LASERNet CNN-LSTM model")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training/validation")
@@ -269,7 +300,7 @@ def main() -> None:
     parser.add_argument("--visualize-every", type=int, default=25, help="Visualize activations every N epochs (0 to disable)")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
     parser.add_argument("--split-ratio", type=str, default="10,6,8", help="Train/Val/Test split ratio")
-    parser.add_argument("--seq-length", type=int, default=4, help="Number of context frames in input sequence")
+    parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames in input sequence")
     parser.add_argument("--note", type=str, default="", help="Short note describing this run")
     args = parser.parse_args()
     device = get_device()
@@ -284,7 +315,7 @@ def main() -> None:
 
     # Create timestamped run directory
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_dir = Path("runs") / timestamp
+    run_dir = Path("new_runs") / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "visualizations").mkdir(exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
@@ -302,8 +333,8 @@ def main() -> None:
     print(f"  Visualize:     Every {args.visualize_every} epochs" if args.visualize_every > 0 else "  Visualize:     Disabled")
     print()
 
-    # Create model, change parameters for experimenting
-    model = CNN_LSTM().to(device)
+    # Create model, change parameters for experimenting, added another lstm layer
+    model = CNN_LSTM(lstm_layers=2).to(device)
 
     # Print model info
     param_count = model.count_parameters()
@@ -396,19 +427,19 @@ def main() -> None:
             "hidden_channels": [16, 32, 64],
             "lstm_hidden": 64,
             "temp_min": 300.0,
-            "temp_max": 4600.0,
+            "temp_max": 4652.0498046875,
         },
         "training": {
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "learning_rate": args.lr,
             "optimizer": "Adam",
-            "loss": "MSELoss",
+            "loss": "MAE",
         },
         "dataset": {
             "field": "temperature",
             "plane": "xz",
-            "sequence_length": 3,
+            "sequence_length": seq_len,
             "target_offset": 1,
             "train_samples": len(train_dataset),
             "val_samples": len(val_dataset),
@@ -432,7 +463,9 @@ def main() -> None:
 
     # Setup training components
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    criterion = nn.MSELoss()
+
+    # ---- TRAINING LOSS (you change this) ----
+    criterion = nn.MSELoss()          # or nn.MSELoss(), or SmoothL1
     
     #criterion = nn.L1Loss()
     #mse = nn.MSELoss()
@@ -441,9 +474,8 @@ def main() -> None:
     #mse = nn.MSELoss()
     #l1  = nn.L1Loss()
 
-
-
-    #added this to see the temp difference
+    # ---- METRICS (NEVER change these) ----
+    mse_fn = nn.MSELoss()
     mae_fn = nn.L1Loss()
 
     # Train
@@ -454,6 +486,7 @@ def main() -> None:
         optimizer=optimizer,
         criterion=criterion,
         mae_fn=mae_fn,
+        mse_fn=mse_fn,
         device=device,
         epochs=args.epochs,
         run_dir=run_dir,

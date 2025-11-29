@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-RUN_DIR = "runs/2025-11-22_10-33-12"
-
 import json
 from pathlib import Path
 
@@ -15,6 +13,20 @@ from lasernet.model.CNN_LSTM import CNN_LSTM
 from lasernet.utils import plot_losses       # optional
 from tqdm import tqdm
 from lasernet.utils import visualize_prediction
+
+import numpy as np
+import random
+import torch
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+set_seed(42)
 
 
 def evaluate_test(model, test_loader, device, run_dir):
@@ -91,7 +103,7 @@ def evaluate_test(model, test_loader, device, run_dir):
 # ---------------------------------------------------------------------
 # 1. SELECT RUN DIRECTORY (only thing you need to change)
 # ---------------------------------------------------------------------
-RUN_DIR = Path("runs/lr3_4")   # <--- CHANGE FOR EACH RUN
+RUN_DIR = Path("new_runs/BASELINE+U-Net+convo+lstm+300")   # <--- CHANGE 
 
 CKPT_PATH = RUN_DIR / "checkpoints" / "best_model.pt"
 CONFIG_PATH = RUN_DIR / "config.json"
