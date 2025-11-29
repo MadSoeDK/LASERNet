@@ -33,6 +33,7 @@ MICROnet_notebook:
 
 submit_MICROnet_notebook:
 	@echo "Submitting MICROnet_notebook to job queue"
+	bsub < batch/scripts/train_MICROnet_notebook.sh
 
 # ==================== CLEANUP ====================
 
