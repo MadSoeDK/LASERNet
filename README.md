@@ -166,7 +166,65 @@ The notebook uses the following default settings:
 - **Batch size**: 16
 - **Learning rate**: 1e-3
 - **Optimizer**: Adam
-- **Device**: Automatic GPU detection (CUDA if available)
+- **Device**: Auto-detects CUDA (NVIDIA GPUs), Apple Silicon (MPS), or falls back to CPU
+
+### Device Support
+
+LASERNet automatically detects and uses the best available device:
+
+- **CUDA (NVIDIA GPUs)**: Automatically used if available
+- **Apple Silicon (MPS)**: Automatically used on Mac M1/M2/M3 chips
+- **CPU**: Fallback if no GPU is available
+
+#### Manual Device Selection
+
+You can override automatic device selection:
+
+**Using environment variable:**
+```bash
+# Force CUDA
+export TORCH_DEVICE=cuda
+make MICROnet_notebook
+
+# Force Apple Silicon MPS
+export TORCH_DEVICE=mps
+make MICROnet_notebook
+
+# Force CPU
+export TORCH_DEVICE=cpu
+make MICROnet_notebook
+```
+
+**In Python code:**
+```python
+from lasernet.utils import get_device
+
+# Auto-detect (recommended)
+device = get_device()
+
+# Force specific device
+device = get_device("cuda")  # or "mps" or "cpu"
+```
+
+**Check available devices:**
+```python
+from lasernet.utils import print_device_info
+
+print_device_info()
+# Output:
+# Device Information:
+# ==================================================
+# CUDA (NVIDIA GPU):
+#   Available: Yes
+#   Devices: 1
+#   Device 0: NVIDIA A100-SXM4-40GB
+#   Memory: 40.0 GB
+# Apple Silicon MPS:
+#   Available: No
+# CPU:
+#   Cores: 64
+# ==================================================
+```
 
 ## Performance
 

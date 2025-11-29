@@ -27,20 +27,7 @@ from lasernet.model.MicrostructureCNN_LSTM import MicrostructureCNN_LSTM
 from lasernet.model.MicrostructurePredRNN import MicrostructurePredRNN
 from lasernet.model.losses import SolidificationWeightedMSELoss, CombinedLoss
 from lasernet.utils import plot_losses
-
-
-def get_device() -> torch.device:
-    """Get the best available device."""
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print("Using GPU")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
-        print("Using Apple Silicon GPU (MPS)")
-    else:
-        device = torch.device("cpu")
-        print("Using CPU only")
-    return device
+from lasernet.utils.device import get_device
 
 
 def load_datasets_from_checkpoint(

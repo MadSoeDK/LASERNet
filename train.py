@@ -15,6 +15,7 @@ from tqdm import tqdm
 from lasernet.dataset import SliceSequenceDataset, SplitType
 from lasernet.model.CNN_LSTM import CNN_LSTM
 from lasernet.utils import create_training_report, plot_losses, visualize_prediction
+from lasernet.utils.device import get_device
 
 def train_tempnet(
     model: CNN_LSTM,
@@ -210,19 +211,6 @@ def evaluate_test(
     }
 
     return test_results
-
-
-def get_device() -> torch.device:
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print("Using GPU")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
-        print("Using Apple Silicon GPU (MPS)")
-    else:
-        device = torch.device("cpu")
-        print("Using CPU only")
-    return device
 
 
 def main() -> None:

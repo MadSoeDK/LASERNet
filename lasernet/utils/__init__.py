@@ -1,3 +1,4 @@
+from lasernet.utils.device import get_device, get_device_info, print_device_info
 from lasernet.utils.plot import plot_losses, plot_sliding_window
 from lasernet.utils.visualize import (
     create_training_report,
@@ -8,6 +9,9 @@ from lasernet.utils.visualize import (
 )
 
 __all__ = [
+    "get_device",
+    "get_device_info",
+    "print_device_info",
     "plot_losses",
     "plot_sliding_window",
     "visualize_activations",
