@@ -356,7 +356,7 @@ def load_model_and_predict(
     train_ratio: float = 0.5,
     val_ratio: float = 0.25,
     test_ratio: float = 0.25,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, dict]:
     """
     Load a trained model and generate a prediction.
 
@@ -372,7 +372,7 @@ def load_model_and_predict(
         test_ratio: Test split ratio (should match training)
 
     Returns:
-        Tuple of (prediction, target, mask, metadata)
+        Tuple of (prediction, target, future_temp, mask, metadata)
     """
     if not Path(checkpoint_path).exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
@@ -458,7 +458,157 @@ def load_model_and_predict(
         'slice_index': slice_index,
     }
 
-    return pred_micro, target_micro, mask, metadata
+    return pred_micro, target_micro, future_temp.cpu().squeeze(0), mask, metadata
+
+
+def save_solidification_mask_visualization(
+    future_temp: torch.Tensor,
+    pred_micro: torch.Tensor,
+    target_micro: torch.Tensor,
+    mask: torch.Tensor,
+    loss_fn: CombinedLoss,
+    save_path: str,
+    title: str = "Solidification Mask Visualization",
+    timestep: int = 0,
+    slice_coord: float = 0.0,
+) -> None:
+    """
+    Save a visualization of the solidification mask weighting.
+
+    Args:
+        future_temp: Future temperature frame [1, H, W]
+        pred_micro: Predicted microstructure [9, H, W]
+        target_micro: Target microstructure [9, H, W]
+        mask: Valid pixel mask [H, W]
+        loss_fn: CombinedLoss function with get_weight_map method
+        save_path: Path to save image
+        title: Title for the figure
+        timestep: Timestep index for display
+        slice_coord: Slice coordinate for display
+    """
+    # Prepare data
+    temp_np = future_temp[0].cpu().numpy()
+    mask_np = mask.cpu().numpy()
+    mask_3d = np.stack([mask_np] * 3, axis=-1)
+
+    # Get weight map from loss function
+    weight_map = loss_fn.solidification_loss.get_weight_map(
+        future_temp.unsqueeze(0),  # Add batch dimension [1, 1, H, W]
+        mask.unsqueeze(0)          # Add batch dimension [1, H, W]
+    ).squeeze(0).cpu().numpy()     # Remove batch dimension [H, W]
+
+    # Denormalize temperature for display
+    temp_min = 300.0
+    temp_max = 2000.0
+    temp_denorm = temp_np * (temp_max - temp_min) + temp_min
+
+    # Prepare microstructure RGB
+    target_rgb = np.transpose(target_micro[:3].cpu().numpy(), (1, 2, 0))
+    target_rgb_masked = np.where(mask_3d, target_rgb, 0)
+
+    pred_rgb = np.transpose(pred_micro[:3].cpu().numpy(), (1, 2, 0))
+    pred_rgb_masked = np.where(mask_3d, pred_rgb, 0)
+
+    # Calculate weighted error
+    error = ((target_micro - pred_micro) ** 2).mean(dim=0).cpu().numpy()  # [H, W]
+    weighted_error = error * weight_map
+
+    # Create figure
+    fig, axes = plt.subplots(2, 3, figsize=(20, 10))
+    fig.suptitle(
+        f'{title}\n'
+        f'Timestep: {timestep} | Slice: {slice_coord:.2f} | '
+        f'T_solidus={loss_fn.solidification_loss.T_solidus:.0f}K, '
+        f'T_liquidus={loss_fn.solidification_loss.T_liquidus:.0f}K',
+        fontsize=16,
+        fontweight='bold'
+    )
+
+    # Row 1, Col 1: Temperature field with solidification range
+    ax = axes[0, 0]
+    temp_masked = np.ma.masked_where(~mask_np, temp_denorm)
+    im = ax.imshow(temp_masked, cmap='hot', interpolation='nearest', origin='lower')
+
+    # Add contour lines for solidification range
+    T_solidus = loss_fn.solidification_loss.T_solidus
+    T_liquidus = loss_fn.solidification_loss.T_liquidus
+    T_mid = (T_solidus + T_liquidus) / 2
+
+    # Only draw contours where mask is valid
+    temp_for_contour = np.where(mask_np, temp_denorm, np.nan)
+
+    contours_solidus = ax.contour(temp_for_contour, levels=[T_solidus], colors='cyan', linewidths=2, linestyles='--')
+    contours_liquidus = ax.contour(temp_for_contour, levels=[T_liquidus], colors='blue', linewidths=2, linestyles='--')
+    contours_mid = ax.contour(temp_for_contour, levels=[T_mid], colors='lime', linewidths=3)
+
+    ax.clabel(contours_solidus, inline=True, fontsize=8, fmt=f'{T_solidus:.0f}K')
+    ax.clabel(contours_liquidus, inline=True, fontsize=8, fmt=f'{T_liquidus:.0f}K')
+    ax.clabel(contours_mid, inline=True, fontsize=8, fmt=f'{T_mid:.0f}K (peak)')
+
+    ax.set_title('Temperature Field\n(with solidification range)', fontsize=12, fontweight='bold')
+    ax.axis('off')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+
+    # Row 1, Col 2: Weight map
+    ax = axes[0, 1]
+    weight_masked = np.ma.masked_where(~mask_np, weight_map)
+    im = ax.imshow(weight_masked, cmap='viridis', interpolation='nearest', vmin=0, vmax=1, origin='lower')
+    ax.set_title(f'Loss Weight Map\n(type={loss_fn.solidification_loss.weight_type}, scale={loss_fn.solidification_loss.weight_scale})',
+                 fontsize=12, fontweight='bold')
+    ax.axis('off')
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Weight')
+
+    # Add statistics
+    weight_stats = f'Min: {weight_map[mask_np].min():.3f}\nMax: {weight_map[mask_np].max():.3f}\nMean: {weight_map[mask_np].mean():.3f}'
+    ax.text(0.02, 0.98, weight_stats, transform=ax.transAxes,
+            fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    # Row 1, Col 3: Temperature with weight overlay
+    ax = axes[0, 2]
+    # Create RGBA overlay where weight is shown as opacity
+    temp_normalized = (temp_denorm - temp_masked.min()) / (temp_masked.max() - temp_masked.min())
+    temp_rgb = plt.cm.hot(temp_normalized)[:, :, :3]  # Get RGB only
+
+    # Blend temperature and weight using weight as alpha
+    alpha = weight_map[:, :, np.newaxis] * mask_np[:, :, np.newaxis]
+    overlay = temp_rgb * (1 - alpha * 0.7) + plt.cm.viridis(weight_map)[:, :, :3] * alpha * 0.7
+    overlay_masked = np.where(mask_3d, overlay, 0)
+
+    ax.imshow(overlay_masked, interpolation='nearest', origin='lower')
+    ax.set_title('Temperature × Weight\n(high weight = bright overlay)', fontsize=12, fontweight='bold')
+    ax.axis('off')
+
+    # Row 2, Col 1: Ground truth microstructure
+    ax = axes[1, 0]
+    ax.imshow(target_rgb_masked, interpolation='nearest', origin='lower')
+    ax.set_title('Ground Truth\n(IPF-X RGB)', fontsize=12, fontweight='bold')
+    ax.axis('off')
+
+    # Row 2, Col 2: Predicted microstructure
+    ax = axes[1, 1]
+    ax.imshow(pred_rgb_masked, interpolation='nearest', origin='lower')
+    ax.set_title('Prediction\n(IPF-X RGB)', fontsize=12, fontweight='bold')
+    ax.axis('off')
+
+    # Row 2, Col 3: Weighted error map
+    ax = axes[1, 2]
+    weighted_error_masked = np.ma.masked_where(~mask_np, weighted_error)
+    im = ax.imshow(weighted_error_masked, cmap='RdYlGn_r', interpolation='nearest', origin='lower')
+    ax.set_title('Weighted Error Map\n(MSE × Weight)', fontsize=12, fontweight='bold')
+    ax.axis('off')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Weighted MSE')
+
+    # Add error statistics
+    unweighted_mse = error[mask_np].mean()
+    weighted_mse = weighted_error[mask_np].sum() / weight_map[mask_np].sum()
+    error_stats = f'Unweighted MSE: {unweighted_mse:.6f}\nWeighted MSE: {weighted_mse:.6f}'
+    ax.text(0.02, 0.98, error_stats, transform=ax.transAxes,
+            fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    plt.tight_layout()
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
 
 
 def save_prediction_visualization(

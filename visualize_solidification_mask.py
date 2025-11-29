@@ -230,7 +230,7 @@ def visualize_solidification_mask(
     # Row 1, Col 1: Temperature field with solidification range
     ax = axes[0, 0]
     temp_masked = np.ma.masked_where(~mask_np, temp_denorm)
-    im = ax.imshow(temp_masked, cmap='hot', interpolation='nearest')
+    im = ax.imshow(temp_masked, cmap='hot', interpolation='nearest', origin='lower')
 
     # Add contour lines for solidification range
     T_solidus = loss_fn.T_solidus
@@ -255,7 +255,7 @@ def visualize_solidification_mask(
     # Row 1, Col 2: Weight map
     ax = axes[0, 1]
     weight_masked = np.ma.masked_where(~mask_np, weight_map)
-    im = ax.imshow(weight_masked, cmap='viridis', interpolation='nearest', vmin=0, vmax=1)
+    im = ax.imshow(weight_masked, cmap='viridis', interpolation='nearest', vmin=0, vmax=1, origin='lower')
     ax.set_title(f'Loss Weight Map\n(type={loss_fn.weight_type}, scale={loss_fn.weight_scale})',
                  fontsize=12, fontweight='bold')
     ax.axis('off')
@@ -277,26 +277,26 @@ def visualize_solidification_mask(
     overlay = temp_rgb * (1 - alpha * 0.7) + plt.cm.viridis(weight_map)[:, :, :3] * alpha * 0.7
     overlay_masked = np.where(mask_3d, overlay, 0)
 
-    ax.imshow(overlay_masked, interpolation='nearest')
+    ax.imshow(overlay_masked, interpolation='nearest', origin='lower')
     ax.set_title('Temperature × Weight\n(high weight = bright overlay)', fontsize=12, fontweight='bold')
     ax.axis('off')
 
     # Row 2, Col 1: Ground truth microstructure
     ax = axes[1, 0]
-    ax.imshow(target_rgb_masked, interpolation='nearest')
+    ax.imshow(target_rgb_masked, interpolation='nearest', origin='lower')
     ax.set_title('Ground Truth\n(IPF-X RGB)', fontsize=12, fontweight='bold')
     ax.axis('off')
 
     # Row 2, Col 2: Predicted microstructure
     ax = axes[1, 1]
-    ax.imshow(pred_rgb_masked, interpolation='nearest')
+    ax.imshow(pred_rgb_masked, interpolation='nearest', origin='lower')
     ax.set_title('Prediction\n(IPF-X RGB)', fontsize=12, fontweight='bold')
     ax.axis('off')
 
     # Row 2, Col 3: Weighted error map
     ax = axes[1, 2]
     weighted_error_masked = np.ma.masked_where(~mask_np, weighted_error)
-    im = ax.imshow(weighted_error_masked, cmap='RdYlGn_r', interpolation='nearest')
+    im = ax.imshow(weighted_error_masked, cmap='RdYlGn_r', interpolation='nearest', origin='lower')
     ax.set_title('Weighted Error Map\n(MSE × Weight)', fontsize=12, fontweight='bold')
     ax.axis('off')
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Weighted MSE')
