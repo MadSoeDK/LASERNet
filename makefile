@@ -35,6 +35,9 @@ submit_MICROnet_notebook:
 	@echo "Submitting MICROnet_notebook to job queue"
 	bsub < batch/scripts/train_MICROnet_notebook.sh
 
+TempNet_notebook:
+	uv run jupyter nbconvert --to notebook --execute --inplace --debug TempNet.ipynb
+
 # ==================== CLEANUP ====================
 
 clean:

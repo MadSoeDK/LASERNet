@@ -307,6 +307,197 @@ class FastMicrostructureSequenceDataset(Dataset):
         }
 
 
+class FastSliceSequenceDataset(Dataset):
+    """
+    Fast temperature sequence dataset using preprocessed .pt files.
+    
+    Loads only temperature data for TempNet training. Much faster than CSV loading.
+    
+    Args:
+        plane: Plane to extract - "xy", "yz", or "xz"
+        split: Dataset split - "train", "val", or "test"
+        sequence_length: Number of context frames (default 3)
+        target_offset: Offset from last context frame to target (default 1)
+        max_slices: Maximum number of slices to sample (None = all available)
+        processed_dir: Path to preprocessed data directory (defaults to $BLACKHOLE/processed/data)
+        train_ratio: Fraction of data for training (default 0.7)
+        val_ratio: Fraction of data for validation (default 0.15)
+        test_ratio: Fraction of data for testing (default 0.15)
+    
+    Returns (in __getitem__):
+        Dictionary with keys:
+            - 'context': [seq_len, 1, H, W] - context temperature frames
+            - 'context_mask': [seq_len, H, W] - valid pixel masks for context
+            - 'target': [1, H, W] - target temperature frame
+            - 'target_mask': [H, W] - valid pixel mask for target
+            - 'slice_coord': slice coordinate (float)
+            - 'timestep_start': starting timestep index
+            - 'context_timesteps': context timestep indices
+            - 'target_timestep': target timestep index
+    """
+    
+    def __init__(
+        self,
+        plane: PlaneType,
+        split: SplitType,
+        sequence_length: int = 3,
+        target_offset: int = 1,
+        max_slices: Optional[int] = None,
+        processed_dir: Optional[Union[str, Path]] = None,
+        train_ratio: float = 0.7,
+        val_ratio: float = 0.15,
+        test_ratio: float = 0.15,
+    ):
+        self.plane = plane
+        self.split = split
+        self.sequence_length = sequence_length
+        self.target_offset = target_offset
+        
+        # Determine processed data directory
+        if processed_dir is None:
+            blackhole = os.environ.get("BLACKHOLE")
+            if not blackhole:
+                raise ValueError("BLACKHOLE environment variable not set")
+            processed_dir = Path(blackhole) / "processed" / "data"
+        else:
+            processed_dir = Path(processed_dir)
+        
+        if not processed_dir.exists():
+            raise FileNotFoundError(
+                f"Preprocessed data directory not found: {processed_dir}\n"
+                "Run preprocessing script first."
+            )
+        
+        print(f"Loading {split} data from {processed_dir}...")
+        
+        # Load coordinates
+        coords_file = processed_dir / "coordinates.pt"
+        coords = torch.load(coords_file)
+        self.x_coords = coords['x']
+        self.y_coords = coords['y']
+        self.z_coords = coords['z']
+        self.timesteps_all = coords['timesteps'].tolist()
+        
+        # Load temperature data [T, X, Y, Z]
+        temp_file = processed_dir / "temperature.pt"
+        self.temp_data = torch.load(temp_file)
+        
+        # Load mask data [T, X, Y, Z]
+        mask_file = processed_dir / "mask.pt"
+        self.mask_data = torch.load(mask_file)
+        
+        print(f"Loaded data:")
+        print(f"  Temperature: {self.temp_data.shape} ({self.temp_data.element_size() * self.temp_data.numel() / 1024**2:.1f} MB)")
+        
+        # Get plane axes
+        self.width_axis, self.height_axis, self.fixed_axis = _get_plane_axes(plane)
+        
+        # Get coordinate arrays for each axis
+        axis_coords = {
+            'x': self.x_coords,
+            'y': self.y_coords,
+            'z': self.z_coords,
+        }
+        
+        # Determine which slices to use
+        all_slice_coords = axis_coords[self.fixed_axis]
+        if max_slices is not None and max_slices > 0:
+            self.slice_coords = all_slice_coords[:max_slices]
+        else:
+            self.slice_coords = all_slice_coords
+        
+        # Split timesteps
+        num_timesteps = len(self.timesteps_all)
+        all_splits = _split_timesteps(num_timesteps, train_ratio, val_ratio, test_ratio)
+        self.timestep_indices = all_splits[split]
+        
+        # Calculate valid sequence starting timesteps
+        # Skip t=0 (room temperature baseline)
+        min_required = sequence_length + target_offset
+        
+        if len(self.timestep_indices) < min_required + 1:
+            raise ValueError(
+                f"Not enough timesteps ({len(self.timestep_indices)}) for "
+                f"sequence_length={sequence_length} + target_offset={target_offset}"
+            )
+        
+        # Valid sequences: skip first timestep (t=0) and last (min_required - 1) timesteps
+        self.num_valid_sequences = len(self.timestep_indices) - min_required
+        
+        print(f"Dataset info:")
+        print(f"  Split: {split}")
+        print(f"  Plane: {plane}")
+        print(f"  Sequence length: {sequence_length}")
+        print(f"  Target offset: {target_offset}")
+        print(f"  Timesteps: {len(self.timestep_indices)} (indices {min(self.timestep_indices)}-{max(self.timestep_indices)})")
+        print(f"  Valid sequences: {self.num_valid_sequences}")
+        print(f"  Slices: {len(self.slice_coords)}")
+        print(f"  Total samples: {len(self)}")
+        print()
+    
+    def _extract_plane_slice(
+        self,
+        data: torch.Tensor,
+        slice_idx: int
+    ) -> torch.Tensor:
+        """Extract a plane slice from 4D data [T, X, Y, Z]."""
+        if self.plane == "xy":
+            return data[:, :, :, slice_idx]  # [T, X, Y]
+        elif self.plane == "yz":
+            return data[:, slice_idx, :, :]  # [T, Y, Z]
+        elif self.plane == "xz":
+            return data[:, :, slice_idx, :]  # [T, X, Z]
+    
+    def __len__(self) -> int:
+        """Total samples = valid_sequences × num_slices"""
+        return self.num_valid_sequences * len(self.slice_coords)
+    
+    def __getitem__(self, idx: int) -> Dict[str, torch.Any]:
+        """Get temperature sequence sample."""
+        if idx < 0 or idx >= len(self):
+            raise IndexError(f"Index {idx} out of range [0, {len(self)})")
+        
+        # Map flat index to (sequence_start, slice_index)
+        num_slices = len(self.slice_coords)
+        seq_start = idx // num_slices
+        slice_idx = idx % num_slices
+        
+        # Skip t=0: add 1 to sequence start
+        actual_start = seq_start + 1
+        
+        # Get absolute timestep indices
+        context_t_indices = [
+            self.timestep_indices[actual_start + i]
+            for i in range(self.sequence_length)
+        ]
+        target_t_idx = self.timestep_indices[actual_start + self.sequence_length + self.target_offset - 1]
+        
+        # Extract temperature slices [T_seq, H, W]
+        temp_slice_context = self._extract_plane_slice(self.temp_data, slice_idx)
+        context_temp = temp_slice_context[context_t_indices].unsqueeze(1)  # [seq_len, 1, H, W]
+        target_temp = temp_slice_context[target_t_idx].unsqueeze(0)  # [1, H, W]
+        
+        # Extract mask slices [T_seq, H, W]
+        mask_slice_context = self._extract_plane_slice(self.mask_data, slice_idx)
+        context_mask = mask_slice_context[context_t_indices]  # [seq_len, H, W]
+        target_mask = mask_slice_context[target_t_idx]  # [H, W]
+        
+        # Get slice coordinate
+        slice_coord = float(self.slice_coords[slice_idx])
+        
+        return {
+            'context': context_temp,
+            'context_mask': context_mask,
+            'target': target_temp,
+            'target_mask': target_mask,
+            'slice_coord': slice_coord,
+            'timestep_start': seq_start,
+            'context_timesteps': torch.tensor(context_t_indices),
+            'target_timestep': target_t_idx,
+        }
+
+
 __all__ = [
     "FastMicrostructureSequenceDataset",
+    "FastSliceSequenceDataset",
 ]

@@ -12,12 +12,14 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from lasernet.dataset import SliceSequenceDataset
+from lasernet.micronet.dataset.fast_loading import FastSliceSequenceDataset
+from lasernet.micronet.dataset.preprocess_data import save_preprocessed_data
 from lasernet.model.CNN_LSTM import CNN_LSTM
 from lasernet.utils import create_training_report, plot_losses, visualize_prediction
 
 import numpy as np
 import random
+import os
 
 
 def set_seed(seed=42):
@@ -272,7 +274,6 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training/validation")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for Adam optimizer")
     parser.add_argument("--visualize-every", type=int, default=25, help="Visualize activations every N epochs (0 to disable)")
-    parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
     parser.add_argument("--split-ratio", type=str, default="10,6,8", help="Train/Val/Test split ratio")
     parser.add_argument("--seq-length", type=int, default=3, help="Number of context frames in input sequence")
     parser.add_argument("--note", type=str, default="", help="Short note describing this run")
@@ -288,7 +289,7 @@ def main() -> None:
 
     # Create timestamped run directory
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_dir = Path("new_runs") / timestamp
+    run_dir = Path("runs") / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "visualizations").mkdir(exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
@@ -319,43 +320,59 @@ def main() -> None:
 
     # Create datasets for train, validation, and test
     print("Loading datasets...")
-    train_dataset = SliceSequenceDataset(
-        field="temperature",
+    
+    # Check if preprocessed files are available for fast loading
+    blackhole = os.environ.get("BLACKHOLE")
+    if not blackhole:
+        raise RuntimeError("BLACKHOLE environment variable not set. Cannot locate data directory.")
+    
+    data_dir = Path(blackhole) / "data"
+    processed_dir = Path(blackhole) / "processed" / "data"
+    required_files = ["coordinates.pt", "temperature.pt", "mask.pt"]
+    
+    # Auto-run preprocessing if files don't exist
+    if not all((processed_dir / f).exists() for f in required_files):
+        print("⚠ Preprocessed files not found. Running preprocessing...")
+        print(f"  Input:  {data_dir}")
+        print(f"  Output: {processed_dir}")
+        save_preprocessed_data(
+            data_dir=data_dir,
+            output_dir=processed_dir,
+            downsample_factor=2
+        )
+        print("✓ Preprocessing complete!\n")
+    
+    print("✓ Using FAST loading from preprocessed .pt files")
+    
+    train_dataset = FastSliceSequenceDataset(
         plane="xz",
         split="train",
         sequence_length=seq_len,
         target_offset=1,
-        preload=not args.no_preload,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
     )
-
-    val_dataset = SliceSequenceDataset(
-        field="temperature",
+    val_dataset = FastSliceSequenceDataset(
         plane="xz",
         split="val",
         sequence_length=seq_len,
         target_offset=1,
-        preload=not args.no_preload,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
     )
-
-    test_dataset = SliceSequenceDataset(
-        field="temperature",
+    test_dataset = FastSliceSequenceDataset(
         plane="xz",
         split="test",
         sequence_length=seq_len,
         target_offset=1,
-        preload=not args.no_preload,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
     )
 
-    print(f"\nDataset: SliceSequenceDataset")
+    print(f"\nDataset: FastSliceSequenceDataset (fast loading from .pt files)")
     print(f"  Train samples: {len(train_dataset):5d} ({train_dataset.num_valid_sequences} seqs × {len(train_dataset.slice_coords)} slices)")
     print(f"  Val samples:   {len(val_dataset):5d} ({val_dataset.num_valid_sequences} seqs × {len(val_dataset.slice_coords)} slices)")
     print(f"  Test samples:  {len(test_dataset):5d} ({test_dataset.num_valid_sequences} seqs × {len(test_dataset.slice_coords)} slices)")
@@ -394,6 +411,8 @@ def main() -> None:
             "loss": "MAE",
         },
         "dataset": {
+            "dataset_class": "FastSliceSequenceDataset",
+            "loading_method": "fast",
             "field": "temperature",
             "plane": "xz",
             "sequence_length": seq_len,
@@ -407,7 +426,6 @@ def main() -> None:
             "num_slices": len(train_dataset.slice_coords),
             "downsample_factor": 2,
             "split_ratio": (train_ratio, val_ratio, test_ratio),
-            "preload": not args.no_preload,
         },
         "device": str(device),
     }
