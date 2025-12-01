@@ -72,8 +72,6 @@ def evaluate_test(model, test_loader, device, run_dir):
     test_target = test_batch["target"].float()
     test_pred = model(test_context.to(device)).detach().cpu()
 
-
-
     vis_path = run_dir / "visualizations" / "test_prediction_best_model.png"
     visualize_prediction(
         context=test_context,
@@ -103,7 +101,7 @@ def evaluate_test(model, test_loader, device, run_dir):
 # ---------------------------------------------------------------------
 # 1. SELECT RUN DIRECTORY (only thing you need to change)
 # ---------------------------------------------------------------------
-RUN_DIR = Path("new_runs/BASELINE+U-Net+convo+lstm+300")   # <--- CHANGE 
+RUN_DIR = Path("new_runs/contender1")   # <--- CHANGE 
 
 CKPT_PATH = RUN_DIR / "checkpoints" / "best_model.pt"
 CONFIG_PATH = RUN_DIR / "config.json"
@@ -174,7 +172,7 @@ print()
 # ---------------------------------------------------------------------
 # 5. LOAD MODEL + BEST CHECKPOINT
 # ---------------------------------------------------------------------
-model = CNN_LSTM().to(device)
+model = CNN_LSTM(lstm_layers=2).to(device)
 
 print(f"Loading best model: {CKPT_PATH}")
 ckpt = torch.load(CKPT_PATH, map_location=device)

@@ -1,3 +1,5 @@
+
+
 import torch
 import torch.nn as nn
 from typing import Dict, List
@@ -29,7 +31,7 @@ class ConvLSTMCell(nn.Module):
     def forward(self, x, hidden_state):
         """
         Args:
-            x: [B, input_dim, H, W]
+            x: [B, input_dim, H, W] #one frame of features, instead of 1D vectors 
             hidden_state: tuple of (h, c) each [B, hidden_dim, H, W]
         Returns:
             h_next, c_next: next hidden and cell states
@@ -126,7 +128,7 @@ class CNN_LSTM(nn.Module):
         lstm_hidden: int = 64,
         lstm_layers: int = 1,
         temp_min: float = 300.0,  # Room temperature baseline
-        temp_max: float = 2000.0,  # Max expected temperature
+        temp_max: float = 4652.0498046875,  # Max expected temperature. calculated from data 
     ):
         super().__init__()
 
@@ -134,7 +136,7 @@ class CNN_LSTM(nn.Module):
         self.hidden_channels = hidden_channels
         self.lstm_hidden = lstm_hidden
 
-        # Temperature normalization parameters (registered as buffers, not learnable parameters)
+        # Temperature normalization (registered as buffers, not learnable parameters)
         self.register_buffer('temp_min', torch.tensor(temp_min))
         self.register_buffer('temp_max', torch.tensor(temp_max))
 
@@ -145,24 +147,32 @@ class CNN_LSTM(nn.Module):
         self.enc1 = self._conv_block(input_channels, hidden_channels[0], name="enc1")
         self.enc2 = self._conv_block(hidden_channels[0], hidden_channels[1], name="enc2")
         self.enc3 = self._conv_block(hidden_channels[1], hidden_channels[2], name="enc3")
+        self.enc4 = self._conv_block(hidden_channels[2], hidden_channels[2], name="enc4")
+
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.dropout = nn.Dropout2d(p=0.1) 
 
         # ConvLSTM for temporal modeling
         self.conv_lstm = ConvLSTM(
             input_dim=hidden_channels[2],
             hidden_dim=lstm_hidden,
-            num_layers=lstm_layers
-        )
+            num_layers=lstm_layers)
 
         # Decoder: 3 upsampling blocks
+        # d3 receives: up(lstm_out) + e3  → channels: 64 + 64 = 128
         self.up3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec3 = self._conv_block(lstm_hidden, hidden_channels[1], name="dec3")
+        self.dec3 = self._conv_block(lstm_hidden + hidden_channels[2], hidden_channels[1], name="dec3")
 
+        # d2 receives: up(d3) + e2 → channels: 32 + 32 = 64
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec2 = self._conv_block(hidden_channels[1], hidden_channels[0], name="dec2")
+        self.dec2 = self._conv_block(hidden_channels[1]+ hidden_channels[1], hidden_channels[0], name="dec2")
 
+        # d1 receives: up(d2) + e1 → channels: 16 + 16 = 32
         self.up1 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.dec1 = self._conv_block(hidden_channels[0], hidden_channels[0], name="dec1")
+        self.dec1 = self._conv_block(hidden_channels[0]+ hidden_channels[0], hidden_channels[0], name="dec1")
+
+        #added 
+        self.dec4 = self._conv_block(lstm_hidden + hidden_channels[2], hidden_channels[2], name="dec4")
 
         # Final output layer
         self.final = nn.Conv2d(hidden_channels[0], 1, kernel_size=1)
@@ -174,9 +184,7 @@ class CNN_LSTM(nn.Module):
         """
         block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
+            nn.BatchNorm2d(out_channels),nn.ReLU(inplace=True))
 
         # Register hook to capture activations
         def hook(module, input, output):
@@ -206,6 +214,11 @@ class CNN_LSTM(nn.Module):
         # Clear previous activations
         self.activations.clear()
 
+        # ----- Encode -----
+        skip_e1 = []
+        skip_e2 = []
+        skip_e3 = []
+        skip_e4 = []
         # Encode each frame in the sequence
         encoded_frames = []
         for t in range(seq_len):
@@ -213,31 +226,64 @@ class CNN_LSTM(nn.Module):
 
             # Encoder path
             e1 = self.enc1(x)          # [B, 16, H, W]
+            #e1 = self.dropout(e1)
             p1 = self.pool(e1)         # [B, 16, H/2, W/2]
 
             e2 = self.enc2(p1)         # [B, 32, H/2, W/2]
+            #e2 = self.dropout(e2)
             p2 = self.pool(e2)         # [B, 32, H/4, W/4]
 
             e3 = self.enc3(p2)         # [B, 64, H/4, W/4]
+            #e3 = self.dropout(e3)
             p3 = self.pool(e3)         # [B, 64, H/8, W/8]
 
-            encoded_frames.append(p3)
+            e4 = self.enc4(p3)
+            #e4 = self.dropout(e4)
+            p4 = self.pool(e4)
+
+            encoded_frames.append(p4)
+            
+            #encoded_frames.append(p3)
+            skip_e1.append(e1)
+            skip_e2.append(e2)
+            skip_e3.append(e3)
+            skip_e4.append(e4)
 
         # Stack encoded frames: [B, seq_len, 64, H/8, W/8]
         encoded_seq = torch.stack(encoded_frames, dim=1)
 
         # Apply ConvLSTM for temporal modeling
         lstm_out = self.conv_lstm(encoded_seq)  # [B, 64, H/8, W/8]
+        #lstm_out = self.dropout(lstm_out)
 
-        # Decoder path
-        d3 = self.up3(lstm_out)    # [B, 64, H/4, W/4]
-        d3 = self.dec3(d3)         # [B, 32, H/4, W/4]
 
-        d2 = self.up2(d3)          # [B, 32, H/2, W/2]
-        d2 = self.dec2(d2)         # [B, 16, H/2, W/2]
+        # Use only last frame skip features
+        e1 = skip_e1[-1]
+        e2 = skip_e2[-1]
+        e3 = skip_e3[-1]
+        e4 = skip_e4[-1]
 
-        d1 = self.up1(d2)          # [B, 16, H, W]
-        d1 = self.dec1(d1)         # [B, 16, H, W]
+        # Decoder path with skip connections
+        #d3 = self.up3(lstm_out)    # [B, 64, H/4, W/4]
+        # d4: H/16 → H/8
+        d4 = nn.functional.interpolate(lstm_out, size=e4.shape[-2:], mode="bilinear", align_corners=False)
+        d4 = torch.cat([d4, e4], dim=1)
+        d4 = self.dec4(d4)
+
+        # d3: H/8 → H/4
+        d3 = nn.functional.interpolate(d4, size=e3.shape[-2:], mode="bilinear", align_corners=False)
+        d3 = torch.cat([d3, e3], dim=1)
+        d3 = self.dec3(d3)
+
+        # d2: H/4 → H/2
+        d2 = nn.functional.interpolate(d3, size=e2.shape[-2:], mode="bilinear", align_corners=False)
+        d2 = torch.cat([d2, e2], dim=1)
+        d2 = self.dec2(d2)
+
+        # d1: H/2 → H
+        d1 = nn.functional.interpolate(d2, size=e1.shape[-2:], mode="bilinear", align_corners=False)
+        d1 = torch.cat([d1, e1], dim=1)
+        d1 = self.dec1(d1)
 
         # Final prediction (normalized [0, 1])
         out = self.final(d1)       # [B, 1, H, W]
@@ -259,3 +305,5 @@ class CNN_LSTM(nn.Module):
     def count_parameters(self) -> int:
         """Count total trainable parameters"""
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+

@@ -11,6 +11,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import torch.nn.functional as F
+
 
 from lasernet.dataset import SliceSequenceDataset
 from lasernet.model.CNN_LSTM import CNN_LSTM
@@ -35,6 +37,7 @@ def train_tempnet(
     train_loader: DataLoader,
     val_loader: DataLoader,
     optimizer: optim.Optimizer,
+    scheduler,
     criterion: nn.Module,
     mae_fn: nn.Module,
     device: torch.device,
@@ -71,10 +74,15 @@ def train_tempnet(
             
             # Only compute loss on valid pixels
             mask_expanded = target_mask.unsqueeze(1) # [B, 1, H, W]
+            if epoch == 0:
+                print("Train mask pixels:", mask_expanded.sum().item())
+
             loss = criterion(pred[mask_expanded], target[mask_expanded])
             mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
 
             loss.backward()
+            #added clipped gradient 
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             batch_size = context.size(0)
@@ -106,6 +114,9 @@ def train_tempnet(
 
                 pred = model(context)
                 mask_expanded = target_mask.unsqueeze(1)
+                if epoch == 0:
+                    print("Val mask pixels:", mask_expanded.sum().item())
+
 
                 loss = criterion(pred[mask_expanded], target[mask_expanded])
                 mae = mae_fn(pred[mask_expanded], target[mask_expanded]).item()
@@ -125,6 +136,9 @@ def train_tempnet(
 
         print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.4f}, val loss={avg_val_loss:.4f}")
         print(f" train MAE={avg_train_mae:.2f}, val MAE={avg_val_mae:.2f}")
+
+        scheduler.step(avg_val_loss) #added
+
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
@@ -369,8 +383,8 @@ def main() -> None:
     print("=" * 70)
     print()
 
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0,)
+    # Create data loaders, FROM FALSE TO TRUE add
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0,)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0,)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0,)
 
@@ -418,8 +432,18 @@ def main() -> None:
     print(f"Saved configuration to {run_dir / 'config.json'}")
     print()
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr) 
+    #ADDED
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer,
+    mode="min",
+    factor=0.5,
+    patience=15,
+    cooldown=5,
+    min_lr=1e-5,
+)
     criterion = nn.MSELoss()
+
     mae_fn = nn.L1Loss()
 
     history = train_tempnet(
@@ -428,6 +452,7 @@ def main() -> None:
         val_loader=val_loader,
         optimizer=optimizer,
         criterion=criterion,
+        scheduler=scheduler,
         mae_fn=mae_fn,
         device=device,
         epochs=args.epochs,
