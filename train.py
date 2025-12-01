@@ -37,7 +37,6 @@ def train_tempnet(
     train_loader: DataLoader,
     val_loader: DataLoader,
     optimizer: optim.Optimizer,
-    scheduler,
     criterion: nn.Module,
     mae_fn: nn.Module,
     device: torch.device,
@@ -136,8 +135,6 @@ def train_tempnet(
 
         print(f"Epoch {epoch + 1}/{epochs}: train loss={avg_train_loss:.4f}, val loss={avg_val_loss:.4f}")
         print(f" train MAE={avg_train_mae:.2f}, val MAE={avg_val_mae:.2f}")
-
-        scheduler.step(avg_val_loss) #added
 
 
         if avg_val_loss < best_val_loss:
@@ -284,7 +281,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train the LASERNet CNN-LSTM model")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for training/validation")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for Adam optimizer")
+    parser.add_argument("--lr", type=float, default=2e-4, help="Learning rate for Adam optimizer")
     parser.add_argument("--visualize-every", type=int, default=25, help="Visualize activations every N epochs (0 to disable)")
     parser.add_argument("--no-preload", action="store_true", help="Disable data pre-loading (slower but uses less memory)")
     parser.add_argument("--split-ratio", type=str, default="10,6,8", help="Train/Val/Test split ratio")
@@ -405,7 +402,7 @@ def main() -> None:
             "batch_size": args.batch_size,
             "learning_rate": args.lr,
             "optimizer": "Adam",
-            "loss": "MAE",
+            "loss": "MSE",
         },
         "dataset": {
             "field": "temperature",
@@ -433,15 +430,6 @@ def main() -> None:
     print()
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr) 
-    #ADDED
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer,
-    mode="min",
-    factor=0.5,
-    patience=15,
-    cooldown=5,
-    min_lr=1e-5,
-)
     criterion = nn.MSELoss()
 
     mae_fn = nn.L1Loss()
@@ -452,7 +440,6 @@ def main() -> None:
         val_loader=val_loader,
         optimizer=optimizer,
         criterion=criterion,
-        scheduler=scheduler,
         mae_fn=mae_fn,
         device=device,
         epochs=args.epochs,
