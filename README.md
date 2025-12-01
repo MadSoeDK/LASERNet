@@ -110,34 +110,50 @@ LASERNet/
 
 ## Models
 
-The [MICROnet.ipynb](MICROnet.ipynb) notebook trains and compares **10 different model configurations**:
+The [MICROnet.ipynb](MICROnet.ipynb) notebook trains and compares **16 different model configurations**:
 
-### CNN-LSTM Models:
-1. CNN-LSTM seq=3, MSE loss
-2. CNN-LSTM seq=4, MSE loss
-3. CNN-LSTM seq=4, Combined loss (T_solidus=1560, T_liquidus=1620)
-4. CNN-LSTM seq=4, Combined loss (T_solidus=1530, T_liquidus=1650)
-5. CNN-LSTM seq=4, Combined loss (T_solidus=1500, T_liquidus=1680)
+## CNN-LSTM Models (8 models):
+### MSE Loss:
+1. seq=2, MSE loss
+2. seq=3, MSE loss
+3. seq=4, MSE loss
 
-### PredRNN Models:
-6. PredRNN seq=3, MSE loss
-7. PredRNN seq=4, MSE loss
-8. PredRNN seq=4, Combined loss (T_solidus=1560, T_liquidus=1620)
-9. PredRNN seq=4, Combined loss (T_solidus=1530, T_liquidus=1650)
-10. PredRNN seq=4, Combined loss (T_solidus=1500, T_liquidus=1680)
+### Combined Loss (seq=3):
+4. T_solidus=1560, T_liquidus=1620, weights=70/30
+5. T_solidus=1530, T_liquidus=1650, weights=70/30
+6. T_solidus=1500, T_liquidus=1680, weights=70/30
+7. T_solidus=1560, T_liquidus=1620, weights=50/50
+8. T_solidus=1560, T_liquidus=1620, weights=30/70
+
+## PredRNN Models (8 models):
+### MSE Loss:
+9. seq=2, MSE loss
+10. seq=3, MSE loss
+11. seq=4, MSE loss
+
+### Combined Loss (seq=3):
+12. T_solidus=1560, T_liquidus=1620, weights=70/30
+13. T_solidus=1530, T_liquidus=1650, weights=70/30
+14. T_solidus=1500, T_liquidus=1680, weights=70/30
+15. T_solidus=1560, T_liquidus=1620, weights=50/50
+16. T_solidus=1560, T_liquidus=1620, weights=30/70
+
+All models use U-Net architecture with skip connections for improved gradient flow and feature reuse.
 
 ### Model Details
 
-**CNN-LSTM** - Convolutional LSTM for spatiotemporal prediction
+**CNN-LSTM** - Convolutional LSTM for spatiotemporal prediction with U-Net skip connections
 - Parameters: ~500K
 - Input: Past temperature (1 channel) + microstructure (9 IPF channels)
 - Future conditioning: Next temperature field
 - Output: Predicted microstructure (9 IPF channels)
+- Architecture: U-Net with skip connections for improved gradient flow
 
-**PredRNN** - Predictive RNN with spatiotemporal memory
+**PredRNN** - Predictive RNN with spatiotemporal memory and U-Net skip connections
 - Parameters: ~800K
 - Same input/output structure as CNN-LSTM
 - Enhanced spatiotemporal memory mechanism
+- Architecture: U-Net with skip connections for improved gradient flow
 
 **MSE Loss** - Standard mean squared error on all pixels
 
@@ -145,6 +161,7 @@ The [MICROnet.ipynb](MICROnet.ipynb) notebook trains and compares **10 different
 - Gaussian weighting in solidification temperature range (T_solidus to T_liquidus)
 - Higher weight where microstructure evolution is most active
 - Different temperature ranges tested to find optimal solidification zone
+- Different weight balances tested (70/30, 50/50, 30/70 solidification/global)
 
 ## Data
 
