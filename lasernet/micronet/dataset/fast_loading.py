@@ -7,13 +7,17 @@ instead of parsing CSV files, resulting in 100x faster initialization.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
+from dotenv import load_dotenv
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import os
+
+# Load environment variables from .env file (override=True to ensure project .env takes precedence)
+load_dotenv(override=True)
 
 
 # Type aliases

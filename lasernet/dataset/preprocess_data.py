@@ -15,10 +15,14 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
+
+# Load environment variables from .env file (override=True to ensure project .env takes precedence)
+load_dotenv(override=True)
 
 
 def discover_files(data_dir: Path, pattern: str = "Alldata_withpoints_*.csv") -> List[Path]:

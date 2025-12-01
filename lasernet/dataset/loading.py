@@ -6,10 +6,14 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+
+# Load environment variables from .env file (override=True to ensure project .env takes precedence)
+load_dotenv(override=True)
 
 # Type aliases for clarity
 FieldType = Literal["temperature", "microstructure"]

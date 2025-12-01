@@ -22,18 +22,26 @@ This will:
 
 ### Environment Configuration
 
-The project uses the `BLACKHOLE` environment variable to locate data files. This is configured in the [makefile](makefile):
+The project uses the `BLACKHOLE` environment variable to locate data files. This is configured using a `.env` file:
 
-```makefile
-export BLACKHOLE := /dtu/blackhole/06/168550
-```
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
 
-**To use your own data location:**
-1. Edit the `BLACKHOLE` path in [makefile](makefile:5)
-2. Ensure you have read access to the specified path
-3. Your data directory should contain `Data/` with CSV files or `processed/data/` with preprocessed files
+2. **Edit `.env` and set your data path:**
+   ```bash
+   BLACKHOLE=/path/to/your/blackhole/directory
+   ```
 
-**Default path**: If kept as `/dtu/blackhole/06/168550`, you need read access to this DTU storage location.
+3. **Ensure your data directory structure:**
+   Your `BLACKHOLE` path should contain either:
+   - `Data/` with CSV files (for initial loading), or
+   - `processed/data/` with preprocessed `.pt` files (for fast loading)
+
+**Example paths:**
+- DTU HPC: `BLACKHOLE=/dtu/blackhole/06/168550`
+- Local: `BLACKHOLE=/Users/username/dtu/LASERNet/BLACKHOLE`
 
 ### Running the Models
 

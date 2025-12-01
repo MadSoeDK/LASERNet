@@ -22,7 +22,5 @@ mkdir -p logs
 # Activate virtual environment
 source .venv/bin/activate
 
-export BLACKHOLE=/dtu/blackhole/18/162008
-
 # Run the MICROnet_notebook
 make MICROnet_notebook
