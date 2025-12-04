@@ -12,3 +12,5 @@ MICROnet_output/
 .ipynb_checkpoints/
 TempNet_output/
 .env
+MicroNet_artifacts/
+TempNet_artifacts/
