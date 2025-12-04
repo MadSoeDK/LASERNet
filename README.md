@@ -15,6 +15,8 @@ Both models learn spatiotemporal patterns from 3D point cloud data extracted fro
 ### Setup
 
 1. **Configure the data path:**
+
+   From the root of this repository, run:
    ```bash
    echo 'BLACKHOLE=/path/to/directory/with/Data/' > .env
    ```
