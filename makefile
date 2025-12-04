@@ -3,6 +3,11 @@
 
 .PHONY: help init clean MICROnet_notebook submit_MICROnet_notebook
 
+# Default target: run full pipeline
+all: init tempnet_notebook micronet_notebook
+
+.DEFAULT_GOAL := all
+
 init:
 	@command -v uv >/dev/null 2>&1 || (echo "uv not found, installing..." && curl -LsSf https://astral.sh/uv/install.sh | sh)
 	uv sync
@@ -18,36 +23,19 @@ help:
 	@echo "  make init           - Install uv and sync dependencies"
 	@echo ""
 	@echo "Batch Jobs:"
-	@echo "  make lasernet_notebook          - Execute lasernet.ipynb locally"
-	@echo "  make submit_lasernet_notebook   - Submit lasernet notebook to job queue"
-	@echo "  make MICROnet_notebook          - Execute MICROnet.ipynb locally"
-	@echo "  make submit_MICROnet_notebook   - Submit MICROnet notebook to job queue"
-	@echo "  make clone_MICROnet_output      - Fetch pretrained models to avoid training them again"
+	@echo "  make tempnet_notebook           - Execute notebooks/temperature-prediction.ipynb"
+	@echo "  make micronet_notebook          - Execute notebooks/MICROnet.ipynb"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean          - Remove logs, runs, and cache files"
 
 # ==================== BATCH JOB SUBMISSION ====================
 
-lasernet_notebook:
-	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/lasernet.ipynb
-
-submit_lasernet_notebook:
-	@echo "Submitting MICROnet_notebook to job queue"
-	bsub < batch/scripts/train_lasernet_notebook.sh
-
-MICROnet_notebook:
-	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/MICROnet.ipynb
-
-submit_MICROnet_notebook:
-	@echo "Submitting MICROnet_notebook to job queue"
-	bsub < batch/scripts/train_MICROnet_notebook.sh
-
-clone_MICROnet_output:
-	cp -r /dtu/blackhole/06/168550/MICRONET_output/ notebooks/MICROnet_output
-
-TempNet_notebook:
+tempnet_notebook:
 	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/temperature-prediction.ipynb
+
+micronet_notebook:
+	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/MICROnet.ipynb
 
 # ==================== CLEANUP ====================
 
