@@ -18,12 +18,15 @@ help:
 	@echo "LASERNet - Available Make Commands"
 	@echo "==================================="
 	@echo ""
+	@echo "Default:"
+	@echo "  make                - Run full pipeline (init + TempNet + MicroNet)"
+	@echo ""
 	@echo "Setup:"
 	@echo "  make init           	- Install uv if not found and sync dependencies"
 	@echo ""
 	@echo "Batch Jobs:"
-	@echo "  make TempNet           - Execute notebooks/temperature-prediction.ipynb"
-	@echo "  make MicroNet          - Execute notebooks/MICROnet.ipynb"
+	@echo "  make TempNet           - Execute notebooks/TempNet.ipynb"
+	@echo "  make MicroNet          - Execute notebooks/MicroNet.ipynb"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean          - Remove logs, runs, and cache files"
@@ -44,7 +47,9 @@ clean:
 	rm -rf __pycache__/
 	rm -rf lasernet/__pycache__/
 	rm -rf lasernet/**/__pycache__/
-	rm -rf notebooks/MICROnet_output
+	rm -rf MicroNet_artifacts/
+	rm -rf TempNet_artifacts/
+
 	find . -name "*.pyc" -delete
 	find . -name ".DS_Store" -delete
 	@echo "Cleanup complete!"
