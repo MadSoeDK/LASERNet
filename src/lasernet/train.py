@@ -3,9 +3,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import logging
+from pathlib import Path
 
-from lasernet.temperature.data import TemperatureDataset
+from lasernet.data import LaserDataset
 from lasernet.temperature.model import CNN_LSTM
+from lasernet.utils import FieldType
 
 logger = logging.getLogger(__name__)
 
@@ -13,21 +15,34 @@ def train(
     batch_size: int = 16,
     max_epochs: int = 20,
     num_workers: int = 2,
+    field_type: FieldType = "temperature",
 ):
     model = CNN_LSTM()
 
-    # Load training dataset and compute normalization stats
-    train_dataset = TemperatureDataset(split="train", normalize=True)
+    # Load training dataset - normalizer is automatically fitted
+    train_dataset = LaserDataset(
+        field_type=field_type,
+        split="train",
+        normalize=True,
+    )
 
-    if train_dataset.temp_min is None or train_dataset.temp_max is None:
-        raise ValueError("Training dataset normalization stats are unavailable")
+    # Validation dataset shares the normalizer (prevents data leakage)
+    val_dataset = LaserDataset(
+        field_type=field_type,
+        split="val",
+        normalize=True,
+        normalizer=train_dataset.normalizer,
+    )
 
-    # Get normalization stats from training set
-    train_stats = (train_dataset.temp_min, train_dataset.temp_max)
-    logger.info(f"Training normalization stats: min={train_stats[0]:.2f}, max={train_stats[1]:.2f}")
+    # Save normalizer for inference
+    norm_stats_path = Path(f"models/{field_type}_norm_stats.pt")
+    norm_stats_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Apply same normalization to validation set
-    val_dataset = TemperatureDataset(split="val", normalize=True, norm_stats=train_stats)
+    if train_dataset.normalizer is None:
+        raise ValueError("Normalizer not fitted on training dataset.")
+
+    train_dataset.normalizer.save(norm_stats_path)
+    logger.info(f"Saved normalization stats to {norm_stats_path}")
 
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(

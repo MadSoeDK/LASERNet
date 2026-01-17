@@ -75,8 +75,8 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
     # Allocate tensors
     T = len(csv_files)
     X, Y, Z = len(x_coords), len(y_coords), len(z_coords)
-    temp_data = torch.zeros((T, X, Y, Z), dtype=torch.float16)
-    micro_data = torch.zeros((T, X, Y, Z, len(MICROSTRUCTURE_COLUMNS)), dtype=torch.float16)
+    temp_data = torch.zeros((T, 1, X, Y, Z), dtype=torch.float16)
+    micro_data = torch.zeros((T, len(MICROSTRUCTURE_COLUMNS), X, Y, Z), dtype=torch.float16)
     mask = torch.zeros((T, X, Y, Z), dtype=torch.bool)
     timesteps: List[int] = []
 
@@ -105,11 +105,11 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
         z_idx = df["Points:2"].map(z_map).to_numpy()
 
         # Fill temperature
-        temp_data[t_idx, x_idx, y_idx, z_idx] = torch.from_numpy(df["T"].to_numpy().astype(np.float16))
+        temp_data[t_idx, 0, x_idx, y_idx, z_idx] = torch.from_numpy(df["T"].to_numpy().astype(np.float16))
 
         # Fill microstructure (10 channels)
         for ch, col in enumerate(MICROSTRUCTURE_COLUMNS):
-            micro_data[t_idx, x_idx, y_idx, z_idx, ch] = torch.from_numpy(df[col].to_numpy().astype(np.float16))
+            micro_data[t_idx, ch, x_idx, y_idx, z_idx] = torch.from_numpy(df[col].to_numpy().astype(np.float16))
         # Mark valid points
         mask[t_idx, x_idx, y_idx, z_idx] = True
 

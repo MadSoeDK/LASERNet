@@ -12,3 +12,6 @@ evaluate:
 
 tensorboard:
 	tensorboard --logdir lightning_logs/ --host=0.0.0.0 --port=6006
+
+test:
+	uv run tests/test_utils.py

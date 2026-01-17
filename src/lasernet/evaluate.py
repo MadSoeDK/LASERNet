@@ -4,7 +4,8 @@ import logging
 from pytorch_lightning import Trainer
 import json
 
-from lasernet.temperature.data import TemperatureDataset
+from lasernet.data import LaserDataset
+from lasernet.data.normalizer import DataNormalizer
 from lasernet.temperature.model import CNN_LSTM
 from torch.utils.data import DataLoader
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 def evaluate(
     checkpoint_path: Path = Path("models/best_temperature_model-v1.ckpt"),
+    norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
     data_path: Path = Path("./data/processed/"),
     batch_size: int = 16,
     num_workers: int = 2,
@@ -22,6 +24,7 @@ def evaluate(
 
     Args:
         checkpoint_path: Path to model checkpoint
+        norm_stats_path: Path to saved normalization statistics
         data_path: Path to processed data directory
         batch_size: Batch size for evaluation
         num_workers: Number of data loading workers
@@ -35,29 +38,27 @@ def evaluate(
     model = CNN_LSTM.load_from_checkpoint(checkpoint_path)
     logger.info(f"Model has {model.count_parameters():,} trainable parameters")
 
-    # Load training dataset to get normalization stats
-    train_dataset = TemperatureDataset(
-        data_path=data_path,
-        split="train",
-        normalize=True
-    )
+    # Load normalizer (saved during training)
+    if not norm_stats_path.exists():
+        raise FileNotFoundError(
+            f"Normalizer not found at {norm_stats_path}. "
+            f"Run training first to generate normalization stats."
+        )
+    normalizer = DataNormalizer.load(norm_stats_path)
+    logger.info(f"Loaded normalizer from {norm_stats_path}")
 
-    if train_dataset.temp_min is None or train_dataset.temp_max is None:
-        raise ValueError("Training dataset normalization stats are unavailable")
-
-    train_stats = (train_dataset.temp_min, train_dataset.temp_max)
-    logger.info(f"Using training normalization stats: min={train_stats[0]:.2f}, max={train_stats[1]:.2f}")
-
-    # Load test dataset with same normalization
-    test_dataset = TemperatureDataset(
+    # Load test dataset with normalizer
+    test_dataset = LaserDataset(
         data_path=data_path,
         split="test",
         normalize=True,
-        norm_stats=train_stats
+        normalizer=normalizer,
     )
 
     logger.info(f"Test dataset: {len(test_dataset)} samples")
     logger.info(f"Data shape: {test_dataset.shape}")
+    logger.info(f"Normalizer channel mins: {normalizer.channel_mins}")
+    logger.info(f"Normalizer channel maxs: {normalizer.channel_maxs}")
 
     # Create data loader
     test_loader = DataLoader(
@@ -82,12 +83,16 @@ def evaluate(
     test_mse = test_results[0]['test_mse']
     test_mae = test_results[0]['test_mae']
 
+    if normalizer.channel_maxs is None or normalizer.channel_mins is None:
+        raise ValueError("Normalizer channel mins/maxs are not set.")
+
     # Compile results
     results = {
         "num_samples": len(test_dataset),
         "test_mse": float(test_mse),
         "test_mae": float(test_mae),
-        "temp_range": (train_stats[0], train_stats[1]),
+        "channel_mins": normalizer.channel_mins.tolist(),
+        "channel_maxs": normalizer.channel_maxs.tolist(),
     }
 
     # Save results to JSON file alongside the checkpoint
