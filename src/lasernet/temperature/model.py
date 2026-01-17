@@ -87,9 +87,9 @@ class ConvLSTM(nn.Module):
         batch_size, seq_len, _, height, width = x.size()
 
         # Initialize hidden states
-        h = [torch.zeros(batch_size, self.hidden_dim, height, width, device=x.device)
+        h = [torch.zeros(batch_size, self.hidden_dim, height, width, device=x.device, dtype=x.dtype)
              for _ in range(self.num_layers)]
-        c = [torch.zeros(batch_size, self.hidden_dim, height, width, device=x.device)
+        c = [torch.zeros(batch_size, self.hidden_dim, height, width, device=x.device, dtype=x.dtype)
              for _ in range(self.num_layers)]
 
         # Process sequence
@@ -316,11 +316,18 @@ class CNN_LSTM(pl.LightningModule):
         """Test step for PyTorch Lightning"""
         x, y = batch
         y_hat = self(x)
-        loss = nn.functional.mse_loss(y_hat, y)
 
-        # Log test loss
-        self.log('test_loss', loss, on_step=False, on_epoch=True)
-        return loss
+        # Calculate MSE loss
+        mse = nn.functional.mse_loss(y_hat, y)
+
+        # Calculate MAE loss
+        mae = nn.functional.l1_loss(y_hat, y)
+
+        # Log both metrics
+        self.log('test_mse', mse, on_step=False, on_epoch=True)
+        self.log('test_mae', mae, on_step=False, on_epoch=True)
+
+        return mse
 
     def configure_optimizers(self):
         """Configure optimizer for PyTorch Lightning"""

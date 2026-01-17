@@ -1,7 +1,6 @@
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
-from lasernet.model import Model
 from torch.utils.data import DataLoader
 import logging
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def train(
     batch_size: int = 16,
-    max_epochs: int = 5,
+    max_epochs: int = 20,
     num_workers: int = 2,
 ):
     model = CNN_LSTM()
