@@ -183,3 +183,6 @@ backup/
 .github/dependabot.yaml
 AGENTS.md
 /data
+lightning_logs/
+models/
+outputs/

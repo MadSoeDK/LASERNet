@@ -23,12 +23,18 @@ def _discover_csv_files(data_dir: Path, pattern: str = "Alldata_withpoints_*.csv
     return sorted(files, key=extract_timestep)
 
 
-def _discover_coordinates(csv_file: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Scan one CSV to get unique sorted coordinates."""
+def _discover_coordinates(csv_file: Path, downsample_factor: int = 2) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Scan one CSV to get unique sorted coordinates with downsampling."""
     df = pd.read_csv(csv_file, usecols=["Points:0", "Points:1", "Points:2"])
     x = np.sort(np.unique(df["Points:0"].to_numpy()))
     y = np.sort(np.unique(df["Points:1"].to_numpy()))
     z = np.sort(np.unique(df["Points:2"].to_numpy()))
+
+    # Apply downsampling to coordinates
+    x = x[::downsample_factor]
+    y = y[::downsample_factor]
+    z = z[::downsample_factor]
+
     return x, y, z
 
 
@@ -40,6 +46,11 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
         data_dir: Directory containing Alldata_withpoints_*.csv files
         output_dir: Directory for output .pt files
     """
+    # if files already exist, skip processing
+    if (output_dir / "temperature.pt").exists() and (output_dir / "microstructure.pt").exists():
+        logger.info("Preprocessed files already exist. Skipping preprocessing.")
+        return
+
     logger.info(f"Data directory: {data_dir}")
     logger.info(f"Output directory: {output_dir}")
 
@@ -47,9 +58,12 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
     csv_files = _discover_csv_files(data_dir)
     logger.info(f"Found {len(csv_files)} CSV files")
 
-    # Scan first file for coordinates
+    # Downsample factor (2 = every 2nd point)
+    downsample_factor = 2
+
+    # Scan first file for coordinates with downsampling
     logger.debug("Scanning coordinates...")
-    x_coords, y_coords, z_coords = _discover_coordinates(csv_files[0])
+    x_coords, y_coords, z_coords = _discover_coordinates(csv_files[0], downsample_factor)
     logger.debug(f"  X: {len(x_coords)}, Y: {len(y_coords)}, Z: {len(z_coords)}")
     logger.debug(f"  Grid size: {len(x_coords) * len(y_coords) * len(z_coords):,} points")
 
@@ -77,6 +91,13 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
         logger.debug(f"Processing timestep {timestep} ({t_idx + 1}/{len(csv_files)})")
 
         df = pd.read_csv(csv_file, usecols=usecols)
+
+        # Filter to only include downsampled coordinates
+        df = df[
+            df["Points:0"].isin(x_coords) &
+            df["Points:1"].isin(y_coords) &
+            df["Points:2"].isin(z_coords)
+        ]
 
         # Map coordinates to indices
         x_idx = df["Points:0"].map(x_map).to_numpy()
