@@ -7,8 +7,7 @@ from tqdm import tqdm
 import logging
 import typer
 
-from backup.lasernet.micronet.dataset.loading import MICROSTRUCTURE_COLUMNS, TEMPERATURE_COLUMNS
-from src.lasernet.utils import AXIS_COLUMNS
+from lasernet.utils import AXIS_COLUMNS, MICROSTRUCTURE_COLUMNS, TEMPERATURE_COLUMNS
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def _discover_coordinates(csv_file: Path) -> Tuple[np.ndarray, np.ndarray, np.nd
     return x, y, z
 
 
-def preprocess(data_dir: Path, output_dir: Path) -> None:
+def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./data/processed/")) -> None:
     """
     Preprocess raw CSV files into temperature.pt and microstructure.pt files.
 
@@ -49,10 +48,10 @@ def preprocess(data_dir: Path, output_dir: Path) -> None:
     logger.info(f"Found {len(csv_files)} CSV files")
 
     # Scan first file for coordinates
-    logger.info("Scanning coordinates...")
+    logger.debug("Scanning coordinates...")
     x_coords, y_coords, z_coords = _discover_coordinates(csv_files[0])
-    logger.info(f"  X: {len(x_coords)}, Y: {len(y_coords)}, Z: {len(z_coords)}")
-    logger.info(f"  Grid size: {len(x_coords) * len(y_coords) * len(z_coords):,} points")
+    logger.debug(f"  X: {len(x_coords)}, Y: {len(y_coords)}, Z: {len(z_coords)}")
+    logger.debug(f"  Grid size: {len(x_coords) * len(y_coords) * len(z_coords):,} points")
 
     # Build lookup maps
     x_map = {v: i for i, v in enumerate(x_coords)}
@@ -62,8 +61,8 @@ def preprocess(data_dir: Path, output_dir: Path) -> None:
     # Allocate tensors
     T = len(csv_files)
     X, Y, Z = len(x_coords), len(y_coords), len(z_coords)
-    temp_data = torch.zeros((T, X, Y, Z), dtype=torch.float32)
-    micro_data = torch.zeros((T, X, Y, Z, len(MICROSTRUCTURE_COLUMNS)), dtype=torch.float32)
+    temp_data = torch.zeros((T, X, Y, Z), dtype=torch.float16)
+    micro_data = torch.zeros((T, X, Y, Z, len(MICROSTRUCTURE_COLUMNS)), dtype=torch.float16)
     mask = torch.zeros((T, X, Y, Z), dtype=torch.bool)
     timesteps: List[int] = []
 
@@ -71,10 +70,11 @@ def preprocess(data_dir: Path, output_dir: Path) -> None:
     usecols = list(MICROSTRUCTURE_COLUMNS) + list(TEMPERATURE_COLUMNS) + list(AXIS_COLUMNS.values())
 
     # Load each CSV
-    logger.info("Loading CSV files...")
+    logger.debug("Loading CSV files...")
     for t_idx, csv_file in enumerate(tqdm(csv_files)):
         timestep = int(csv_file.stem.split("_")[-1])
         timesteps.append(timestep)
+        logger.debug(f"Processing timestep {timestep} ({t_idx + 1}/{len(csv_files)})")
 
         df = pd.read_csv(csv_file, usecols=usecols)
 
@@ -84,12 +84,11 @@ def preprocess(data_dir: Path, output_dir: Path) -> None:
         z_idx = df["Points:2"].map(z_map).to_numpy()
 
         # Fill temperature
-        temp_data[t_idx, x_idx, y_idx, z_idx] = torch.from_numpy(df["T"].to_numpy().astype(np.float32))
+        temp_data[t_idx, x_idx, y_idx, z_idx] = torch.from_numpy(df["T"].to_numpy().astype(np.float16))
 
         # Fill microstructure (10 channels)
         for ch, col in enumerate(MICROSTRUCTURE_COLUMNS):
-            micro_data[t_idx, x_idx, y_idx, z_idx, ch] = torch.from_numpy(df[col].to_numpy().astype(np.float32))
-
+            micro_data[t_idx, x_idx, y_idx, z_idx, ch] = torch.from_numpy(df[col].to_numpy().astype(np.float16))
         # Mark valid points
         mask[t_idx, x_idx, y_idx, z_idx] = True
 

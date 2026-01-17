@@ -15,3 +15,19 @@ MICROSTRUCTURE_COLUMNS = (
     "ori_inds",
 )
 TIMESTEP_PATTERN = re.compile(r"(\d+)(?!.*\d)")
+
+
+def compute_split_indices(
+    total_size: int,
+    train_frac: float = 0.5,
+    val_frac: float = 0.25,
+) -> tuple[range, range, range]:
+    """Compute dataset split indices."""
+    train_end = int(total_size * train_frac)
+    val_end = train_end + int(total_size * val_frac)
+
+    return (
+        range(0, train_end),
+        range(train_end, val_end),
+        range(val_end, total_size),
+    )
