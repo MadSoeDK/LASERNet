@@ -182,3 +182,4 @@ backup/
 .github/prompts
 .github/dependabot.yaml
 AGENTS.md
+/data
