@@ -7,6 +7,7 @@ FieldType = Literal["temperature", "microstructure"]
 PlaneType = Literal["xy", "yz", "xz"]
 SplitType = Literal["train", "val", "test"]
 NetworkType = Literal["temperaturecnn", "microstructurecnn"]
+LossType = Literal["mae", "mse", "loss-front-combined"]
 
 # Column mappings
 AXIS_COLUMNS = {"x": "Points:0", "y": "Points:1", "z": "Points:2"}

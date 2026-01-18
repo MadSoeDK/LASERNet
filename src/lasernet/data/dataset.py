@@ -67,6 +67,9 @@ class LaserDataset(Dataset):
         self.timesteps: int
         self.data, self.timesteps = self._load_data()
 
+        # Load temperature data for mask/weighting (needed for both field types)
+        self.temperature_data: torch.Tensor = self._load_temperature_data()
+
         # Initialize normalizer
         self.normalizer: Optional[DataNormalizer] = None
 
@@ -159,13 +162,42 @@ class LaserDataset(Dataset):
 
         return data, T
 
+    def _load_temperature_data(self) -> torch.Tensor:
+        """Load temperature data for mask/weighting computation.
+
+        Returns:
+            temperature_data: [N, 1, H, W] - temperature field (unnormalized)
+        """
+        temp_file = self.data_path / "temperature.pt"
+        if not temp_file.exists():
+            raise FileNotFoundError(f"Temperature data not found at {temp_file}. Please run preprocessing.py first.")
+
+        loaded = torch.load(temp_file)
+        data = loaded["data"]  # [T, 1, X, Y, Z]
+
+        # Apply same split as main data
+        T = data.shape[0]
+        train_idx, val_idx, test_idx = compute_split_indices(T)
+
+        if self.split == "train":
+            data = data[train_idx]
+        elif self.split == "val":
+            data = data[val_idx]
+        elif self.split == "test":
+            data = data[test_idx]
+
+        # Extract planar slices (reuse same method)
+        data = self._extract_plane(data)  # [N, 1, H, W]
+
+        return data
+
     def __len__(self) -> int:
         """Number of valid starting positions for temporal sequences."""
         return self.data.shape[0] - self.sequence_length - self.target_offset + 1
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Get a temporal sequence of 2D plane slices and target frame.
+        Get a temporal sequence of 2D plane slices, target frame, temperature, and mask.
 
         Args:
             idx: Starting sample index
@@ -173,6 +205,8 @@ class LaserDataset(Dataset):
         Returns:
             input_seq: [seq_len, C, H, W] - input temporal sequence
             target: [C, H, W] - target frame to predict
+            temperature: [H, W] - temperature field at target timestep (unnormalized)
+            mask: [H, W] - valid region mask (1 where temperature > 300K)
         """
         # Extract input sequence: sequence_length consecutive frames
         end_idx = idx + self.sequence_length
@@ -182,7 +216,13 @@ class LaserDataset(Dataset):
         target_idx = end_idx + self.target_offset - 1
         target = self.data[target_idx]  # [C, H, W]
 
-        return input_seq, target
+        # Get temperature at target timestep (squeeze channel dim)
+        temperature = self.temperature_data[target_idx, 0]  # [H, W]
+
+        # Create mask: valid where temperature > ambient (300K)
+        mask = (temperature > 300.0).bool()  # [H, W]
+
+        return input_seq, target, temperature, mask
 
     @property
     def shape(self) -> torch.Size:
@@ -232,10 +272,12 @@ if __name__ == "__main__":
             print(f"  Channel maxs: {dataset.normalizer.channel_maxs}")
 
         # Print single sample shape
-        input_seq, target = dataset[0]
+        input_seq, target, temperature, mask = dataset[0]
         print(f"\n  Sample shapes:")
         print(f"    Input sequence: {input_seq.shape}")
         print(f"    Target: {target.shape}")
+        print(f"    Temperature: {temperature.shape}")
+        print(f"    Mask: {mask.shape}")
         print(f"    Input type: {input_seq.dtype}")
         print(f"    Target type: {target.dtype}")
 

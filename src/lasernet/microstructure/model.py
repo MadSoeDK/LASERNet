@@ -185,32 +185,43 @@ class MicrostructureCNN_LSTM(pl.LightningModule):
 
     def on_after_batch_transfer(self, batch, dataloader_idx):
         """Ensure batch tensors match model dtype (handles mixed precision)"""
-        x, y = batch
+        x, y, temperature, mask = batch
         x = x.to(dtype=self.dtype)
         y = y.to(dtype=self.dtype)
-        return x, y
+        temperature = temperature.to(dtype=self.dtype)
+        mask = mask.to(dtype=self.dtype)
+        return x, y, temperature, mask
+
+    def _compute_loss(self, y_hat, y, temperature, mask):
+        """Compute loss, handling both simple and weighted loss functions."""
+        if(isinstance(self.loss_fn, nn.MSELoss)):
+           return self.loss_fn(y_hat, y) # mse 
+        elif isinstance(self.loss_fn, nn.L1Loss):
+            return self.loss_fn(y_hat, y) # mae
+        else:     
+            return self.loss_fn(y_hat, y, temperature, mask) # combined or weighted loss
 
     def training_step(self, batch, batch_idx):
         """Training step for PyTorch Lightning"""
-        x, y = batch  # x: [B, seq_len, 10, H, W], y: [B, 10, H, W]
+        x, y, temperature, mask = batch  # x: [B, seq_len, 10, H, W], y: [B, 10, H, W]
         y_hat = self(x)
-        loss = self.loss_fn(y_hat, y)
+        loss = self._compute_loss(y_hat, y, temperature, mask)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         """Validation step for PyTorch Lightning"""
-        x, y = batch
+        x, y, temperature, mask = batch
         y_hat = self(x)
-        loss = self.loss_fn(y_hat, y)
+        loss = self._compute_loss(y_hat, y, temperature, mask)
 
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         """Test step for PyTorch Lightning"""
-        x, y = batch
+        x, y, _, _ = batch
         y_hat = self(x)
 
         mse = nn.functional.mse_loss(y_hat, y)

@@ -153,3 +153,89 @@ class SolidificationWeightedMSELoss(nn.Module):
             temperature = temperature.squeeze(1)
 
         return self._compute_weights(temperature, mask)
+
+
+class CombinedLoss(nn.Module):
+    """
+    Combines multiple loss terms with configurable weights.
+
+    Useful for balancing solidification front weighting with
+    global accuracy.
+
+    Example:
+        # 70% weight on solidification front, 30% on global MSE
+        loss_fn = CombinedLoss(
+            solidification_weight=0.7,
+            global_weight=0.3,
+        )
+    """
+
+    def __init__(
+        self,
+        solidification_weight: float = 0.7,
+        global_weight: float = 0.3,
+        T_solidus: float = 1400.0,
+        T_liquidus: float = 1500.0,
+        weight_type: str = "gaussian",
+        weight_scale: float = 0.1,
+        base_weight: float = 0.1,
+        return_components: bool = False,
+    ):
+        super().__init__()
+
+        self.solidification_weight = solidification_weight
+        self.global_weight = global_weight
+        self.return_components = return_components
+
+        self.solidification_loss = SolidificationWeightedMSELoss(
+            T_solidus=T_solidus,
+            T_liquidus=T_liquidus,
+            weight_type=weight_type,
+            weight_scale=weight_scale,
+            base_weight=base_weight,
+        )
+
+        self.global_loss = nn.MSELoss()
+
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        temperature: torch.Tensor,
+        mask: torch.Tensor,
+    ):
+        """
+        Compute combined loss.
+
+        Args:
+            pred: Predicted microstructure [B, C, H, W]
+            target: Target microstructure [B, C, H, W]
+            temperature: Temperature field [B, H, W] or [B, 1, H, W]
+            mask: Valid region mask [B, H, W]
+
+        Returns:
+            If return_components is False:
+                loss: Scalar combined loss
+            If return_components is True:
+                tuple: (total_loss, solidification_loss, global_loss)
+        """
+        # Solidification front weighted loss
+        solid_loss = self.solidification_loss(pred, target, temperature, mask)
+
+        # Global MSE loss (only on valid pixels)
+        mask_expanded = mask.bool().unsqueeze(1).expand_as(target)
+        global_loss = self.global_loss(
+            pred[mask_expanded],
+            target[mask_expanded],
+        )
+
+        # Combine
+        total_loss = (
+            self.solidification_weight * solid_loss +
+            self.global_weight * global_loss
+        )
+
+        if self.return_components:
+            return total_loss, solid_loss, global_loss
+        else:
+            return total_loss

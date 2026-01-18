@@ -12,7 +12,8 @@ import typer
 from lasernet.data import LaserDataset
 from lasernet.temperature.model import TemperatureCNN_LSTM
 from lasernet.microstructure.model import MicrostructureCNN_LSTM
-from lasernet.utils import NetworkType
+from lasernet.utils import LossType, NetworkType
+from lasernet.loss import CombinedLoss
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +112,34 @@ def main(
     lstm_hidden: int = 64,
     lstm_layers: int = 1,
     learning_rate: float = 1e-3,
+    # loss parameters
+    loss: LossType = "mse",
+    t_solidus: float = 1400.0,
+    t_liquidus: float = 1500.0,
+    solidification_weight: float = 0.7,
+    global_weight: float = 0.3,
 ):
     """Train a model based on specified network type."""
+
+    if loss == "mse":
+        loss_fn = torch.nn.MSELoss()
+    elif loss == "loss-front-combined":
+        loss_fn = CombinedLoss(T_solidus=t_solidus, T_liquidus=t_liquidus, solidification_weight=solidification_weight, global_weight=global_weight)
+    else:
+        raise ValueError(f"Loss type not supported: {loss}")
 
     if network == "temperaturecnn":
         model = TemperatureCNN_LSTM(hidden_channels=hidden_channels,
                                     lstm_hidden=lstm_hidden,
                                     lstm_layers=lstm_layers,
-                                    learning_rate=learning_rate)
+                                    learning_rate=learning_rate,
+                                    loss_fn=loss_fn)
     elif network == "microstructurecnn":
         model = MicrostructureCNN_LSTM(hidden_channels=hidden_channels,
                                        lstm_hidden=lstm_hidden,
                                        lstm_layers=lstm_layers,
-                                       learning_rate=learning_rate)
+                                       learning_rate=learning_rate,
+                                       loss_fn=loss_fn)
     else:
         raise ValueError(f"Unknown network: {network}")
 

@@ -68,7 +68,7 @@ def predict(
     logger.info(f"Using sample index: {sample_idx}")
 
     # Get input sequence and target
-    input_seq, target = test_dataset[sample_idx]
+    input_seq, target, _, _ = test_dataset[sample_idx]
 
     # Make prediction
     with torch.no_grad():
@@ -150,7 +150,7 @@ def main(
 
         # Save visualization if requested
         if save_output:
-            output_path = Path(f'results/prediction_timestep_{timestep}_slice_{slice_index}.png')
+            output_path = Path(f'results/predict_{network}_timestep_{timestep}_slice_{slice_index}.png')
             if network == "microstructurecnn":
                 plot_microstructure_prediction(
                     input_seq=input_seq,
