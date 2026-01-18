@@ -1,8 +1,9 @@
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import logging
+import torch
 from pathlib import Path
 from typing import List
 
@@ -18,16 +19,24 @@ logger = logging.getLogger(__name__)
 
 def train(
     model: LightningModule,
-    batch_size: int = 16,
+    batch_size: int = 32,
     max_epochs: int = 20,
     num_workers: int = 0,
 ):
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(0)
+        logger.info(f"Running with GPU: {device_name}")
+    else:
+        logger.info("Running on CPU (no CUDA visible)")
+
     if isinstance(model, TemperatureCNN_LSTM):
         field_type = "temperature"
     elif isinstance(model, MicrostructureCNN_LSTM):
         field_type = "microstructure"
     else:
         raise ValueError(f"Unknown model type: {type(model)}")
+
+    logger.info(f"Training model: {model.__class__.__name__}")
 
     # Load training dataset - normalizer is automatically fitted
     train_dataset = LaserDataset(
@@ -57,21 +66,29 @@ def train(
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(
         dirpath="models",
-        filename=f"best_{field_type}_model",
+        filename=f"best_{model.__class__.__name__.lower()}",
         monitor="val_loss",
         mode="min",
         save_top_k=1,
+        enable_version_counter=False
+    )
+
+    # Configure early stopping to prevent overfitting
+    early_stopping_callback = EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        mode="min",
     )
 
     # Configure TensorBoard logger
     tb_logger = TensorBoardLogger(
         save_dir="lightning_logs",
-        name=f"{field_type}_model"
+        name=f"{model.__class__.__name__.lower()}_model"
     )
 
     trainer = Trainer(
         max_epochs=max_epochs,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, early_stopping_callback],
         logger=tb_logger,
     )
 
