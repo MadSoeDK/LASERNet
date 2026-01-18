@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 class ConvLSTMCell(nn.Module):

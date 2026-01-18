@@ -1,6 +1,6 @@
 init:
 	export LASERNET_LOG_LEVEL=INFO
-	@if [ -d /dtu ]; then export BLACKHOLE=/dtu/blackhole/06/168550/; if [ ! -L data ]; then rm -rf data && ln -s $$BLACKHOLE/data data; fi; fi
+	@if [ -d /dtu ]; then export BLACKHOLE=/dtu/blackhole/06/168550; if [ ! -L data ]; then rm -rf data && ln -s $$BLACKHOLE/data data; fi; fi
 
 preprocess:
 	uv run src/lasernet/preprocess.py
@@ -9,7 +9,7 @@ train:
 	uv run src/lasernet/train.py
 
 evaluate:
-	uv run src/lasernet/evaluate.py 
+	uv run src/lasernet/evaluate.py
 
 predict:
 	uv run src/lasernet/predict.py --timestep 18 --slice-index 47
@@ -35,5 +35,3 @@ hpc:
 	uv run src/lasernet/predict.py --network microstructurecnn --timestep 19 --slice-index 47
 	uv run src/lasernet/predict.py --network microstructurecnn --timestep 20 --slice-index 47
 	uv run src/lasernet/predict.py --network microstructurecnn --timestep 21 --slice-index 47
-
-

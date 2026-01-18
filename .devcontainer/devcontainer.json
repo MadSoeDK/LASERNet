@@ -13,10 +13,6 @@
         "UV_LINK_MODE": "copy"
     },
 
-    "mounts": [
-        "source=${localEnv:HOME}/.config/claude,target=/home/vscode/.config/claude,type=bind"
-    ],
-
     // Configure tool-specific properties.
     "customizations": {
         "vscode": {

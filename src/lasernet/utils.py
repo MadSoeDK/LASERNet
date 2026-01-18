@@ -1,7 +1,6 @@
 import re
 from typing import Literal
 
-from matplotlib.pylab import Enum
 
 FieldType = Literal["temperature", "microstructure"]
 PlaneType = Literal["xy", "yz", "xz"]
@@ -21,6 +20,7 @@ TIMESTEP_PATTERN = re.compile(r"(\d+)(?!.*\d)")
 
 TRAIN_SPLIT_FRACTION = 0.5
 VAL_SPLIT_FRACTION = 0.25
+TOTAL_TIMESTEPS = 23
 
 def compute_split_indices(
     total_size: int,
@@ -63,10 +63,9 @@ def compute_index(
         Index relative to the split: (timestep - split_start) * SLICES_PER_TIMESTEP + slice_index
     """
     # Define total slices per timestep
-    SLICES_PER_TIMESTEP = 47 if plane == "xy" else 94 if plane == "xz" else 465 if plane == "yz" else 0
+    SLICES_PER_TIMESTEP = slices_per_timestep(plane)
 
     # Total number of timesteps (adjust this based on your dataset)
-    TOTAL_TIMESTEPS = 25
 
     # Compute timestep split ranges
     train_end = int(TOTAL_TIMESTEPS * TRAIN_SPLIT_FRACTION)
@@ -103,21 +102,46 @@ def compute_index(
 
 def compute_timestep_from_index(
         index: int,
-        plane: PlaneType,
+        plane: PlaneType = "xz",
+        split: SplitType = "train",
 ) -> int:
     """
-    Compute timestep from dataset index and plane.
+    Compute global timestep from dataset index, plane, and split.
 
     Args:
-        index: dataset index
+        index: dataset index relative to the split
         plane: Which plane ("xy", "xz", or "yz")
+        split: Which split ("train", "val", or "test") - default "train"
 
     Returns:
-        Timestep index
+        Global timestep index
     """
-    SLICES_PER_TIMESTEP = 47 if plane == "xy" else 94 if plane == "xz" else 465 if plane == "yz" else 0
+    SLICES_PER_TIMESTEP = slices_per_timestep(plane)
 
     if SLICES_PER_TIMESTEP == 0:
         raise ValueError(f"Invalid plane: {plane}")
 
-    return index // SLICES_PER_TIMESTEP
+    # Compute split start timestep
+    if split == "train":
+        split_start = 0
+    elif split == "val":
+        split_start = int(TOTAL_TIMESTEPS * TRAIN_SPLIT_FRACTION)
+    elif split == "test":
+        split_start = int(TOTAL_TIMESTEPS * TRAIN_SPLIT_FRACTION) + int(TOTAL_TIMESTEPS * VAL_SPLIT_FRACTION)
+    else:
+        raise ValueError(f"Invalid split: {split}")
+
+    # Compute relative timestep within split, then add split offset
+    relative_timestep = index // SLICES_PER_TIMESTEP
+    return split_start + relative_timestep
+
+def slices_per_timestep(plane: PlaneType) -> int:
+    """Return number of slices per timestep for given plane."""
+    if plane == "xy":
+        return 47
+    elif plane == "xz":
+        return 94
+    elif plane == "yz":
+        return 465
+    else:
+        raise ValueError(f"Invalid plane: {plane}")
