@@ -36,3 +36,15 @@ The directory structure of the project looks like this:
 ```
 
 ````
+
+## Tensorboard on the HPC
+Start tensorboard
+```
+make tensorboard
+```
+
+From you local machine, create SSH tunnel
+```
+ssh -L 6006:localhost:6006 your_username@hpc_login_node
+```
+Then open `http://localhost:6006` in your browser
