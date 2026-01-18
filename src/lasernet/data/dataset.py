@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Dataset
 from typing import Optional
 
-from lasernet.utils import FieldType, SplitType, PlaneType, compute_split_indices
+from lasernet.utils import FieldType, SplitType, PlaneType, compute_split_indices, compute_timestep_from_index, slices_per_timestep
 from lasernet.data.normalizer import DataNormalizer
 import logging
 
@@ -53,8 +53,8 @@ class LaserDataset(Dataset):
 
         self.data_path = data_path
         self.field_type = field_type
-        self.plane = plane
-        self.split = split
+        self.plane: PlaneType = plane
+        self.split: SplitType = split
         self.sequence_length = sequence_length
         self.target_offset = target_offset
         self.normalize = normalize
@@ -62,6 +62,9 @@ class LaserDataset(Dataset):
 
         # Determine number of channels
         self.num_channels = 1 if field_type == "temperature" else 10
+
+        # Get number of slices per timestep for this plane
+        self.slices_per_timestep = slices_per_timestep(plane)
 
         self.data: torch.Tensor
         self.timesteps: int
@@ -192,12 +195,39 @@ class LaserDataset(Dataset):
         return data
 
     def __len__(self) -> int:
-        """Number of valid starting positions for temporal sequences."""
-        return self.data.shape[0] - self.sequence_length - self.target_offset + 1
+        """Number of valid starting positions for temporal sequences.
+
+        Each slice position across time forms an independent temporal sequence.
+        We have slices_per_timestep spatial slices, and for each slice we need
+        enough timesteps to build a sequence plus the target offset.
+        """
+        # Total timesteps available for this split
+        available_timesteps = self.timesteps
+
+        # Number of timesteps needed for one temporal sequence
+        required_timesteps = self.sequence_length + self.target_offset
+
+        # Check if we have enough timesteps
+        if available_timesteps < required_timesteps:
+            return 0
+
+        # Number of valid temporal sequences per spatial slice
+        sequences_per_slice = available_timesteps - required_timesteps + 1
+
+        # Total sequences = slices × sequences per slice
+        return self.slices_per_timestep * sequences_per_slice
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get a temporal sequence of 2D plane slices, target frame, temperature, and mask.
+
+        The dataset contains flattened spatial slices across time, ordered as:
+        [t0_slice0, t0_slice1, ..., t0_sliceN, t1_slice0, t1_slice1, ..., t1_sliceN, ...]
+
+        To get a temporal sequence for a specific spatial slice, we need to:
+        1. Determine which spatial slice this idx corresponds to
+        2. Determine which timestep to start from
+        3. Stride by slices_per_timestep to get the same spatial slice across time
 
         Args:
             idx: Starting sample index
@@ -208,13 +238,27 @@ class LaserDataset(Dataset):
             temperature: [H, W] - temperature field at target timestep (unnormalized)
             mask: [H, W] - valid region mask (1 where temperature > 300K)
         """
-        # Extract input sequence: sequence_length consecutive frames
-        end_idx = idx + self.sequence_length
-        input_seq = self.data[idx:end_idx]  # [seq_len, C, H, W]
+        # Decompose idx into spatial slice and temporal sequence offset
+        slice_idx = idx % self.slices_per_timestep  # Which spatial slice (0 to slices_per_timestep-1)
+        temporal_offset = idx // self.slices_per_timestep  # Which temporal starting position
 
-        # Extract target frame: offset frames ahead from last input frame
-        target_idx = end_idx + self.target_offset - 1
+        # Build input sequence by striding through time for this spatial slice
+        input_indices = []
+        for t in range(self.sequence_length):
+            # Index for timestep (temporal_offset + t) and spatial slice (slice_idx)
+            sample_idx = (temporal_offset + t) * self.slices_per_timestep + slice_idx
+            input_indices.append(sample_idx)
+
+        input_seq = torch.stack([self.data[i] for i in input_indices])  # [seq_len, C, H, W]
+
+        # Extract target frame: offset timesteps ahead from last input frame
+        target_timestep = temporal_offset + self.sequence_length + self.target_offset - 1
+        target_idx = target_timestep * self.slices_per_timestep + slice_idx
         target = self.data[target_idx]  # [C, H, W]
+
+        logger.debug(f"Fetched sample idx={idx}: slice_idx={slice_idx}, temporal_offset={temporal_offset}, input_indices={input_indices}, target_idx={target_idx}, input_seq shape={input_seq.shape}, target shape={target.shape}")
+
+        logger.debug(f"Fetched sample idx={idx}: slice_idx={slice_idx}, temporal_offset={temporal_offset}, input_indices={input_indices}, target_idx={target_idx}, input_seq shape={input_seq.shape}, target shape={target.shape}")
 
         # Get temperature at target timestep (squeeze channel dim)
         temperature = self.temperature_data[target_idx, 0]  # [H, W]
@@ -243,6 +287,14 @@ class LaserDataset(Dataset):
         if self.normalizer is None:
             raise ValueError("Dataset was not normalized, cannot denormalize")
         return self.normalizer.inverse_transform(data)
+
+    def get_global_timestep(self, index: int) -> int:
+        """Get global timestep corresponding to dataset index.
+
+        Args:
+            index: Dataset index
+        """
+        return compute_timestep_from_index(index, self.plane, self.split)
 
 
 
@@ -283,6 +335,6 @@ if __name__ == "__main__":
 
         # Test denormalization roundtrip
         denorm_target = dataset.denormalize(target)
-        print(f"\n  Denormalization test:")
+        print("\n  Denormalization test:")
         print(f"    Normalized target range: [{target.min():.4f}, {target.max():.4f}]")
         print(f"    Denormalized target range: [{denorm_target.min():.2f}, {denorm_target.max():.2f}]")

@@ -9,7 +9,7 @@ train:
 	uv run src/lasernet/train.py
 
 evaluate:
-	uv run src/lasernet/evaluate.py 
+	uv run src/lasernet/evaluate.py
 
 predict:
 	uv run src/lasernet/predict.py --timestep 18 --slice-index 47
@@ -35,5 +35,3 @@ hpc:
 	uv run src/lasernet/predict.py --network microstructurecnn --timestep 19 --slice-index 47
 	uv run src/lasernet/predict.py --network microstructurecnn --timestep 20 --slice-index 47
 	uv run src/lasernet/predict.py --network microstructurecnn --timestep 21 --slice-index 47
-
-

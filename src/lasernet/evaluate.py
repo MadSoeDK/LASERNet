@@ -1,6 +1,5 @@
 from pathlib import Path
 import logging
-from typing import Literal
 from pytorch_lightning import Trainer
 import json
 import pytorch_lightning as pl
@@ -116,11 +115,11 @@ def main(
     if network == "temperaturecnn":
         checkpoint_file = checkpoint_dir / f"best_{TemperatureCNN_LSTM.__name__.lower()}.ckpt"
         model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_file)
-        norm_stats_file = norm_stats_dir / f"temperature_norm_stats.pt"
+        norm_stats_file = norm_stats_dir / "temperature_norm_stats.pt"
     elif network == "microstructurecnn":
         checkpoint_file = checkpoint_dir / f"best_{MicrostructureCNN_LSTM.__name__.lower()}.ckpt"
         model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_file)
-        norm_stats_file = norm_stats_dir / f"microstructure_norm_stats.pt"
+        norm_stats_file = norm_stats_dir / "microstructure_norm_stats.pt"
     else:
         raise ValueError(f"Unknown model: {network}")
     logger.info(f"Model has {model.count_parameters():,} trainable parameters")

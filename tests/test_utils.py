@@ -1,6 +1,6 @@
 """Tests for utility functions."""
 import pytest
-from lasernet.utils import compute_index, compute_split_indices, TRAIN_SPLIT_FRACTION, VAL_SPLIT_FRACTION
+from lasernet.utils import compute_index, compute_split_indices
 
 
 class TestComputeIndex:

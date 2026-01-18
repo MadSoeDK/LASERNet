@@ -3,7 +3,6 @@ from pathlib import Path
 import logging
 from typing import Tuple
 
-from lasernet.data import normalizer
 from lasernet.temperature.model import TemperatureCNN_LSTM
 from lasernet.microstructure.model import MicrostructureCNN_LSTM
 from lasernet.data import LaserDataset
@@ -70,6 +69,9 @@ def predict(
     # Get input sequence and target
     input_seq, target, _, _ = test_dataset[sample_idx]
 
+    # print global timestep from index for verification
+    logger.debug(f"Global timestep from index: {test_dataset.get_global_timestep(sample_idx)} (expected: {timestep})")
+
     # Make prediction
     with torch.no_grad():
         # Add batch dimension and convert to model dtype
@@ -107,11 +109,11 @@ def main(
         if network == "temperaturecnn":
             checkpoint_file = checkpoint_dir / f"best_{TemperatureCNN_LSTM.__name__.lower()}.ckpt"
             model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_file)
-            norm_stats_file = norm_stats_dir / f"temperature_norm_stats.pt"
+            norm_stats_file = norm_stats_dir / "temperature_norm_stats.pt"
         elif network == "microstructurecnn":
             checkpoint_file = checkpoint_dir / f"best_{MicrostructureCNN_LSTM.__name__.lower()}.ckpt"
             model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_file)
-            norm_stats_file = norm_stats_dir / f"microstructure_norm_stats.pt"
+            norm_stats_file = norm_stats_dir / "microstructure_norm_stats.pt"
         else:
             raise ValueError(f"Unknown network: {network}")
         logger.info(f"Loaded {network} from {checkpoint_dir}")
@@ -134,7 +136,7 @@ def main(
         mae = torch.abs(prediction - target).mean().item()
         max_error = torch.abs(prediction - target).max().item()
 
-        print(f"\nPrediction Metrics:")
+        print("\nPrediction Metrics:")
         if network == "microstructurecnn":
             print(f"  MSE: {((prediction - target) ** 2).mean().item():.4f}")
             print(f"  MAE: {mae:.4f}")

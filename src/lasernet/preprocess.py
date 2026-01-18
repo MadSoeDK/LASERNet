@@ -86,6 +86,10 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
     # Load each CSV
     logger.debug("Loading CSV files...")
     for t_idx, csv_file in enumerate(tqdm(csv_files)):
+        if t_idx == 0:
+            logger.info("Skip first frame with no usefull information")
+            continue  # Skip first file used for coordinate discovery
+
         timestep = int(csv_file.stem.split("_")[-1])
         timesteps.append(timestep)
         logger.debug(f"Processing timestep {timestep} ({t_idx + 1}/{len(csv_files)})")

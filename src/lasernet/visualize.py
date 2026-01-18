@@ -3,7 +3,7 @@ from matplotlib.figure import Figure
 import numpy as np
 import torch
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 
 def plot_temperature_sequence(
