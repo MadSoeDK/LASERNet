@@ -1,25 +1,23 @@
-from pytorch_lightning import LightningModule, Trainer
+from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import logging
 import torch
 from pathlib import Path
-from typing import List
 
 import typer
 
 from lasernet.data import LaserDataset
-from lasernet.temperature.model import TemperatureCNN_LSTM
-from lasernet.microstructure.model import MicrostructureCNN_LSTM
-from lasernet.utils import LossType, NetworkType
-from lasernet.loss import CombinedLoss
+from lasernet.models.base import BaseModel
+from lasernet.laser_types import FieldType, LossType, NetworkType
+from lasernet.utils import get_checkpoint_path, get_loss_fn, get_loss_type, get_model
 
 logger = logging.getLogger(__name__)
 
 
 def train(
-    model: LightningModule,
+    model: BaseModel,
     batch_size: int = 32,
     max_epochs: int = 20,
     num_workers: int = 0,
@@ -30,32 +28,25 @@ def train(
     else:
         logger.info("Running on CPU (no CUDA visible)")
 
-    if isinstance(model, TemperatureCNN_LSTM):
-        field_type = "temperature"
-    elif isinstance(model, MicrostructureCNN_LSTM):
-        field_type = "microstructure"
-    else:
-        raise ValueError(f"Unknown model type: {type(model)}")
-
     logger.info(f"Training model: {model.__class__.__name__}")
 
     # Load training dataset - normalizer is automatically fitted
     train_dataset = LaserDataset(
-        field_type=field_type,
+        field_type=model.field_type,
         split="train",
         normalize=True,
     )
 
     # Validation dataset shares the normalizer (prevents data leakage)
     val_dataset = LaserDataset(
-        field_type=field_type,
+        field_type=model.field_type,
         split="val",
         normalize=True,
         normalizer=train_dataset.normalizer,
     )
 
     # Save normalizer for inference
-    norm_stats_path = Path(f"models/{field_type}_norm_stats.pt")
+    norm_stats_path = Path(f"models/{model.field_type}_norm_stats.pt")
     norm_stats_path.parent.mkdir(parents=True, exist_ok=True)
 
     if train_dataset.normalizer is None:
@@ -67,7 +58,7 @@ def train(
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(
         dirpath="models",
-        filename=f"best_{model.__class__.__name__.lower()}",
+        filename=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
         monitor="val_loss",
         mode="min",
         save_top_k=1,
@@ -84,7 +75,7 @@ def train(
     # Configure TensorBoard logger
     tb_logger = TensorBoardLogger(
         save_dir="lightning_logs",
-        name=f"{model.__class__.__name__.lower()}_model"
+        name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
     )
 
     trainer = Trainer(
@@ -103,45 +94,31 @@ def train(
 
 
 def main(
-    network: NetworkType = "temperaturecnn",
+    network: NetworkType = "deep_cnn_lstm_large",
+    field_type: FieldType = "temperature",
     batch_size: int = 16,
     max_epochs: int = 20,
     num_workers: int = 0,
     # model parameters
-    hidden_channels: List[int] = [16,32,64],
-    lstm_hidden: int = 64,
-    lstm_layers: int = 1,
     learning_rate: float = 1e-3,
     # loss parameters
     loss: LossType = "mse",
-    t_solidus: float = 1400.0,
-    t_liquidus: float = 1500.0,
+    t_solidus: float = 1560.0,
+    t_liquidus: float = 1620.0,
     solidification_weight: float = 0.7,
     global_weight: float = 0.3,
 ):
-    """Train a model based on specified network type."""
+    """Train a model based on specified network type and field type."""
 
-    if loss == "mse":
-        loss_fn = torch.nn.MSELoss()
-    elif loss == "loss-front-combined":
-        loss_fn = CombinedLoss(T_solidus=t_solidus, T_liquidus=t_liquidus, solidification_weight=solidification_weight, global_weight=global_weight)
-    else:
-        raise ValueError(f"Loss type not supported: {loss}")
+    loss_fn = get_loss_fn(loss, T_solidus=t_solidus, T_liquidus=t_liquidus, solidification_weight=solidification_weight, global_weight=global_weight)
 
-    if network == "temperaturecnn":
-        model = TemperatureCNN_LSTM(hidden_channels=hidden_channels,
-                                    lstm_hidden=lstm_hidden,
-                                    lstm_layers=lstm_layers,
-                                    learning_rate=learning_rate,
-                                    loss_fn=loss_fn)
-    elif network == "microstructurecnn":
-        model = MicrostructureCNN_LSTM(hidden_channels=hidden_channels,
-                                       lstm_hidden=lstm_hidden,
-                                       lstm_layers=lstm_layers,
-                                       learning_rate=learning_rate,
-                                       loss_fn=loss_fn)
-    else:
-        raise ValueError(f"Unknown network: {network}")
+    # Note: _Large variants have hardcoded architecture, so only pass learning_rate and loss_fn
+    model_params = {
+        "learning_rate": learning_rate,
+        "loss_fn": loss_fn,
+    }
+
+    model = get_model(field_type=field_type, network=network, **model_params)
 
     train(
         model=model,

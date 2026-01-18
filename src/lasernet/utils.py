@@ -1,12 +1,15 @@
+import torch.nn as nn
+from pathlib import Path
 import re
-from typing import Literal
 
+from lasernet.loss import CombinedLoss
+from torch.nn import MSELoss, L1Loss
 
-FieldType = Literal["temperature", "microstructure"]
-PlaneType = Literal["xy", "yz", "xz"]
-SplitType = Literal["train", "val", "test"]
-NetworkType = Literal["temperaturecnn", "microstructurecnn"]
-LossType = Literal["mae", "mse", "loss-front-combined"]
+from lasernet.laser_types import FieldType, PlaneType, SplitType, NetworkType, LossType
+from lasernet.models.base import BaseModel
+from lasernet.models.deep_cnn_lstm import DeepCNN_LSTM_Large
+from lasernet.models.transformer_unet import TransformerUNet_Large
+
 
 # Column mappings
 AXIS_COLUMNS = {"x": "Points:0", "y": "Points:1", "z": "Points:2"}
@@ -64,7 +67,7 @@ def compute_index(
         Index relative to the split: (timestep - split_start) * SLICES_PER_TIMESTEP + slice_index
     """
     # Define total slices per timestep
-    SLICES_PER_TIMESTEP = slices_per_timestep(plane)
+    SLICES_PER_TIMESTEP = get_num_of_slices(plane)
 
     # Total number of timesteps (adjust this based on your dataset)
 
@@ -117,7 +120,7 @@ def compute_timestep_from_index(
     Returns:
         Global timestep index
     """
-    SLICES_PER_TIMESTEP = slices_per_timestep(plane)
+    SLICES_PER_TIMESTEP = get_num_of_slices(plane)
 
     if SLICES_PER_TIMESTEP == 0:
         raise ValueError(f"Invalid plane: {plane}")
@@ -136,8 +139,8 @@ def compute_timestep_from_index(
     relative_timestep = index // SLICES_PER_TIMESTEP
     return split_start + relative_timestep
 
-def slices_per_timestep(plane: PlaneType) -> int:
-    """Return number of slices per timestep for given plane."""
+def get_num_of_slices(plane: PlaneType) -> int:
+    """Return number of slices for given plane."""
     if plane == "xy":
         return 47
     elif plane == "xz":
@@ -146,3 +149,70 @@ def slices_per_timestep(plane: PlaneType) -> int:
         return 465
     else:
         raise ValueError(f"Invalid plane: {plane}")
+
+def find_file(dir: Path, pattern: str) -> Path:
+    """Find checkpoint file in directory matching pattern."""
+    for file in dir.iterdir():
+        if re.match(pattern, file.name):
+            return file
+    raise FileNotFoundError(f"No file matching {pattern} in {dir}")
+
+def loss_name_from_type(loss_str: LossType) -> str:
+    """Convert string to LossType."""
+    if loss_str == "mse":
+        return MSELoss.__name__.lower()
+    elif loss_str == "mae":
+        return L1Loss.__name__.lower()
+    elif loss_str == "loss-front-combined":
+        return CombinedLoss.__name__.lower()
+    else:
+        raise ValueError(f"Unknown loss type: {loss_str}")
+    
+def get_model(field_type: FieldType, network: NetworkType, **kwargs):
+    """Return model class based on field type and network type."""
+    # Set input_channels based on field_type
+    if field_type == "temperature":
+        input_channels = len(TEMPERATURE_COLUMNS)  # 1
+    elif field_type == "microstructure":
+        input_channels = len(MICROSTRUCTURE_COLUMNS)  # 10
+    else:
+        raise ValueError(f"Unknown field type: {field_type}")
+
+    if network == "deep_cnn_lstm_large":
+        return DeepCNN_LSTM_Large(field_type=field_type, input_channels=input_channels, **kwargs)
+    elif network == "transformer_unet_large":
+        return TransformerUNet_Large(field_type=field_type, input_channels=input_channels, **kwargs)
+    else:
+        raise ValueError(f"Unsupported network type: {network}")
+    
+def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field_type: FieldType, loss_type: LossType):
+    if network == "deep_cnn_lstm_large":
+        model_class = DeepCNN_LSTM_Large.load_from_checkpoint(f"{checkpoint_path}/best_{DeepCNN_LSTM_Large.__name__.lower()}_{field_type}_{loss_name_from_type(loss_type)}.ckpt")
+    elif network == "transformer_unet_large":
+        model_class = TransformerUNet_Large.load_from_checkpoint(f"{checkpoint_path}/best_{TransformerUNet_Large.__name__.lower()}_{field_type}_{loss_name_from_type(loss_type)}.ckpt")
+    else:
+        raise ValueError(f"Unsupported network type: {network}")
+    return model_class
+
+def get_loss_fn(loss_type: LossType, **kwargs) -> MSELoss | CombinedLoss:
+    """Return loss function based on loss type."""
+    if loss_type == "mse":
+        return MSELoss()
+    elif loss_type == "loss-front-combined":
+        return CombinedLoss(**kwargs)
+    else:
+        raise ValueError(f"Unsupported loss type: {loss_type}")
+    
+def get_loss_type(loss_fn: nn.Module) -> LossType:
+    """Return loss type string based on loss function instance."""
+    if isinstance(loss_fn, MSELoss):
+        return "mse"
+    elif isinstance(loss_fn, CombinedLoss):
+        return "loss-front-combined"
+    else:
+        raise ValueError(f"Unsupported loss function: {type(loss_fn)}")
+    
+def get_checkpoint_path(checkpoint_dir: Path, model: BaseModel, loss: LossType, field_type: FieldType) -> Path:
+    """Construct checkpoint path based on model and loss type."""
+    return checkpoint_dir / f"best_{model.__class__.__name__.lower()}_{field_type}_{loss_name_from_type(loss)}.ckpt"
+

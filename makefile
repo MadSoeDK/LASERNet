@@ -1,18 +1,17 @@
 init:
 	export LASERNET_LOG_LEVEL=INFO
-	@if [ -d /dtu ]; then export BLACKHOLE=/dtu/blackhole/06/168550; if [ ! -L data ]; then rm -rf data && ln -s $$BLACKHOLE/data data; fi; fi
 
 preprocess:
 	uv run src/lasernet/preprocess.py
 
 train:
-	uv run src/lasernet/train.py
+	uv run src/lasernet/train.py --network transformer_unet_large --field-type microstructure
 
 evaluate:
-	uv run src/lasernet/evaluate.py
+	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type temperature
 
 predict:
-	uv run src/lasernet/predict.py --timestep 18 --slice-index 47
+	uv run src/lasernet/predict.py --timestep 18 --network transformer_unet_large --field-type microstructure
 
 tensorboard:
 	uv run tensorboard --logdir lightning_logs/ --host=0.0.0.0 --port=6006
@@ -22,16 +21,36 @@ test:
 
 hpc:
 	uv run src/lasernet/preprocess.py
-	uv run src/lasernet/train.py  --network temperaturecnn --num-workers 31 --max-epochs 100
-	uv run src/lasernet/evaluate.py --network temperaturecnn
-	uv run src/lasernet/predict.py --network temperaturecnn --timestep 18 --slice-index 47
-	uv run src/lasernet/predict.py --network temperaturecnn --timestep 19 --slice-index 47
-	uv run src/lasernet/predict.py --network temperaturecnn --timestep 20 --slice-index 47
-	uv run src/lasernet/predict.py --network temperaturecnn --timestep 21 --slice-index 47
 
-	uv run src/lasernet/train.py --network microstructurecnn --num-workers 31 --max-epochs 100
-	uv run src/lasernet/evaluate.py --network microstructurecnn
-	uv run src/lasernet/predict.py --network microstructurecnn --timestep 18 --slice-index 47
-	uv run src/lasernet/predict.py --network microstructurecnn --timestep 19 --slice-index 47
-	uv run src/lasernet/predict.py --network microstructurecnn --timestep 20 --slice-index 47
-	uv run src/lasernet/predict.py --network microstructurecnn --timestep 21 --slice-index 47
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type temperature --num-workers 31 --max-epochs 100
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18 
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type temperature --num-workers 31 --max-epochs 100 --loss loss-front-combined
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type microstructure --num-workers 31 --max-epochs 100
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type microstructure
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type microstructure --timestep 18 
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type microstructure --num-workers 31 --max-epochs 100 --loss loss-front-combined
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type microstructure
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type microstructure --timestep 18
+
+	uv run src/lasernet/train.py  --network transformer_unet_large --field-type temperature --num-workers 31 --max-epochs 100
+	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type temperature
+	uv run src/lasernet/predict.py --network transformer_unet_large --field-type temperature --timestep 18 
+
+	uv run src/lasernet/train.py  --network transformer_unet_large --field-type temperature --num-workers 31 --max-epochs 100 --loss loss-front-combined
+	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type temperature
+	uv run src/lasernet/predict.py --network transformer_unet_large --field-type temperature --timestep 18
+
+	uv run src/lasernet/train.py  --network transformer_unet_large --field-type microstructure --num-workers 31 --max-epochs 100
+	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type microstructure
+	uv run src/lasernet/predict.py --network transformer_unet_large --field-type microstructure --timestep 18 
+
+	uv run src/lasernet/train.py  --network transformer_unet_large --field-type microstructure --num-workers 31 --max-epochs 100 --loss loss-front-combined
+	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type microstructure
+	uv run src/lasernet/predict.py --network transformer_unet_large --field-type microstructure --timestep 18
+

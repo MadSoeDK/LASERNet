@@ -2,13 +2,12 @@ from pathlib import Path
 import logging
 from pytorch_lightning import Trainer
 import json
-import pytorch_lightning as pl
 
 from lasernet.data import LaserDataset
 from lasernet.data.normalizer import DataNormalizer
-from lasernet.temperature.model import TemperatureCNN_LSTM
-from lasernet.microstructure.model import MicrostructureCNN_LSTM
-from lasernet.utils import NetworkType
+from lasernet.models.base import BaseModel
+from lasernet.laser_types import FieldType, LossType, NetworkType
+from lasernet.utils import get_model_from_checkpoint, loss_name_from_type
 from torch.utils.data import DataLoader
 import typer
 
@@ -17,12 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate(
-    model: pl.LightningModule,
+    model: BaseModel,
     normalizer: DataNormalizer,
     data_path: Path = Path("./data/processed/"),
     batch_size: int = 16,
     num_workers: int = 0,
     output_path: Path = Path("./models/"),
+    loss: LossType = "mse",
 ):
     """
     Evaluate trained model on test set using PyTorch Lightning.
@@ -39,17 +39,10 @@ def evaluate(
     """
     logger.info(f"Evaluating: {model.__class__.__name__}")
 
-    if isinstance(model, TemperatureCNN_LSTM):
-        field_type = "temperature"
-    elif isinstance(model, MicrostructureCNN_LSTM):
-        field_type = "microstructure"
-    else:
-        raise ValueError(f"Unknown model type: {type(model)}")
-
     # Load test dataset with normalizer
     test_dataset = LaserDataset(
         data_path=data_path,
-        field_type=field_type,
+        field_type=model.field_type,
         split="test",
         normalize=True,
         normalizer=normalizer,
@@ -96,7 +89,7 @@ def evaluate(
     }
 
     # Save results to JSON file alongside the checkpoint
-    results_path = output_path / f"{model.__class__.__name__}_eval_results.json"
+    results_path = output_path / f"{model.__class__.__name__}_{loss_name_from_type(loss)}_eval_results.json"
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=2)
     logger.info(f"Evaluation results saved to {results_path}")
@@ -106,22 +99,16 @@ def evaluate(
 
 def main(
         checkpoint_dir: Path = Path("models/"),
-        norm_stats_dir: Path = Path("models/"),
-        network: NetworkType = "temperaturecnn",
+        field_type: FieldType = "temperature",
+        network: NetworkType = "deep_cnn_lstm_large",
+        loss: LossType = "mse",
         batch_size: int = 16,
         num_workers: int = 0,
 ):
-    # Load model from checkpoint based on field type
-    if network == "temperaturecnn":
-        checkpoint_file = checkpoint_dir / f"best_{TemperatureCNN_LSTM.__name__.lower()}.ckpt"
-        model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_file)
-        norm_stats_file = norm_stats_dir / "temperature_norm_stats.pt"
-    elif network == "microstructurecnn":
-        checkpoint_file = checkpoint_dir / f"best_{MicrostructureCNN_LSTM.__name__.lower()}.ckpt"
-        model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_file)
-        norm_stats_file = norm_stats_dir / "microstructure_norm_stats.pt"
-    else:
-        raise ValueError(f"Unknown model: {network}")
+    """Evaluate a trained model from checkpoint."""
+    model = get_model_from_checkpoint(checkpoint_dir, network, field_type, loss)
+    norm_stats_file = checkpoint_dir / f"{model.field_type}_norm_stats.pt"
+   
     logger.info(f"Model has {model.count_parameters():,} trainable parameters")
 
     # Load normalizer (saved during training)
@@ -130,6 +117,7 @@ def main(
             f"Normalizer not found at {norm_stats_file}. "
             f"Run training first to generate normalization stats."
         )
+    
     normalizer = DataNormalizer.load(norm_stats_file)
     logger.info(f"Loaded normalizer from {norm_stats_file}")
 
@@ -138,6 +126,7 @@ def main(
         normalizer=normalizer,
         batch_size=batch_size,
         num_workers=num_workers,
+        loss=loss,
     )
 
 

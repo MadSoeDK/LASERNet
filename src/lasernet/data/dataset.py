@@ -3,7 +3,8 @@ import torch
 from torch.utils.data import Dataset
 from typing import Optional
 
-from lasernet.utils import FieldType, SplitType, PlaneType, compute_split_indices, compute_timestep_from_index, slices_per_timestep
+from lasernet.laser_types import FieldType, SplitType, PlaneType
+from lasernet.utils import compute_split_indices, compute_timestep_from_index, get_num_of_slices
 from lasernet.data.normalizer import DataNormalizer
 import logging
 
@@ -64,7 +65,7 @@ class LaserDataset(Dataset):
         self.num_channels = 1 if field_type == "temperature" else 10
 
         # Get number of slices per timestep for this plane
-        self.slices_per_timestep = slices_per_timestep(plane)
+        self.slices_per_timestep = get_num_of_slices(plane)
 
         self.data: torch.Tensor
         self.timesteps: int
