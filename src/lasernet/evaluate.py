@@ -1,30 +1,36 @@
-"""Evaluate trained temperature prediction model on test set."""
 from pathlib import Path
 import logging
+from typing import Literal
 from pytorch_lightning import Trainer
 import json
+import pytorch_lightning as pl
 
 from lasernet.data import LaserDataset
 from lasernet.data.normalizer import DataNormalizer
-from lasernet.temperature.model import CNN_LSTM
+from lasernet.temperature.model import TemperatureCNN_LSTM
+from lasernet.microstructure.model import MicrostructureCNN_LSTM
+from lasernet.utils import NetworkType
 from torch.utils.data import DataLoader
+import typer
+
 
 logger = logging.getLogger(__name__)
 
 
 def evaluate(
-    checkpoint_path: Path = Path("models/best_temperature_model-v1.ckpt"),
-    norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
+    model: pl.LightningModule,
+    normalizer: DataNormalizer,
     data_path: Path = Path("./data/processed/"),
     batch_size: int = 16,
-    num_workers: int = 2,
+    num_workers: int = 0,
+    output_path: Path = Path("./models/"),
 ):
     """
     Evaluate trained model on test set using PyTorch Lightning.
 
     Args:
-        checkpoint_path: Path to model checkpoint
-        norm_stats_path: Path to saved normalization statistics
+        model: Trained PyTorch Lightning model
+        normalizer: Data normalizer used during training
         data_path: Path to processed data directory
         batch_size: Batch size for evaluation
         num_workers: Number of data loading workers
@@ -32,24 +38,19 @@ def evaluate(
     Returns:
         Dictionary with evaluation metrics
     """
-    logger.info(f"Loading model from {checkpoint_path}")
+    logger.info(f"Evaluating: {model.__class__.__name__}")
 
-    # Load model from checkpoint
-    model = CNN_LSTM.load_from_checkpoint(checkpoint_path)
-    logger.info(f"Model has {model.count_parameters():,} trainable parameters")
-
-    # Load normalizer (saved during training)
-    if not norm_stats_path.exists():
-        raise FileNotFoundError(
-            f"Normalizer not found at {norm_stats_path}. "
-            f"Run training first to generate normalization stats."
-        )
-    normalizer = DataNormalizer.load(norm_stats_path)
-    logger.info(f"Loaded normalizer from {norm_stats_path}")
+    if isinstance(model, TemperatureCNN_LSTM):
+        field_type = "temperature"
+    elif isinstance(model, MicrostructureCNN_LSTM):
+        field_type = "microstructure"
+    else:
+        raise ValueError(f"Unknown model type: {type(model)}")
 
     # Load test dataset with normalizer
     test_dataset = LaserDataset(
         data_path=data_path,
+        field_type=field_type,
         split="test",
         normalize=True,
         normalizer=normalizer,
@@ -96,7 +97,7 @@ def evaluate(
     }
 
     # Save results to JSON file alongside the checkpoint
-    results_path = checkpoint_path.parent / f"{checkpoint_path.stem}_eval_results.json"
+    results_path = output_path / f"{model.__class__.__name__}_eval_results.json"
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=2)
     logger.info(f"Evaluation results saved to {results_path}")
@@ -104,6 +105,38 @@ def evaluate(
     return results
 
 
+def main(
+        checkpoint_path: Path = Path("models/best_temperature_model-v1.ckpt"),
+        norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
+        network: NetworkType = "temperaturecnn",
+        batch_size: int = 16,
+        num_workers: int = 0,
+):
+    # Load model from checkpoint based on field type
+    if network == "temperaturecnn":
+        model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_path)
+    elif network == "microstructurecnn":
+        model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_path)
+    else:
+        raise ValueError(f"Unknown model: {network}")
+    logger.info(f"Model has {model.count_parameters():,} trainable parameters")
+
+    # Load normalizer (saved during training)
+    if not norm_stats_path.exists():
+        raise FileNotFoundError(
+            f"Normalizer not found at {norm_stats_path}. "
+            f"Run training first to generate normalization stats."
+        )
+    normalizer = DataNormalizer.load(norm_stats_path)
+    logger.info(f"Loaded normalizer from {norm_stats_path}")
+
+    evaluate(
+        model=model,
+        normalizer=normalizer,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
+
+
 if __name__ == "__main__":
-    import typer
-    typer.run(evaluate)
+    typer.run(main)

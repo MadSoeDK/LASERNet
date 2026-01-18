@@ -293,6 +293,93 @@ def create_animation_frames(
     return frame_paths
 
 
+def plot_prediction_comparison(
+    input_seq: torch.Tensor,
+    target: torch.Tensor,
+    prediction: torch.Tensor,
+    figsize: Tuple[int, int] = (15, 10),
+    save_path: Optional[Path] = None,
+    title: Optional[str] = None,
+) -> Figure:
+    """
+    Plot input sequence, target, prediction, and error in a 2x3 grid.
+
+    Top row: Input sequence frames (3 frames)
+    Bottom row: Ground truth, Prediction, Absolute Error
+
+    Args:
+        input_seq: Input sequence tensor [seq_len, C, H, W] (expects seq_len=3)
+        target: Target frame tensor [C, H, W]
+        prediction: Prediction tensor [C, H, W]
+        figsize: Figure size (width, height)
+        save_path: Optional path to save the figure
+        title: Optional title for the figure
+
+    Returns:
+        matplotlib Figure object
+    """
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
+
+    # Determine common scale from all data
+    all_data = torch.cat([input_seq[:, 0].flatten(), target[0].flatten(), prediction[0].flatten()])
+    vmin, vmax = all_data.min().item(), all_data.max().item()
+
+    # Plot input sequence (top row)
+    for i in range(min(3, input_seq.shape[0])):
+        ax = axes[0, i]
+        frame = input_seq[i, 0].cpu().numpy()
+        im = ax.imshow(frame.T, cmap='hot', aspect='equal', vmin=vmin, vmax=vmax,
+                      interpolation='nearest', origin='lower')
+        ax.set_title(f'Input Frame {i+1}')
+        ax.set_xlabel("X coordinate")
+        ax.set_ylabel("Z coordinate")
+        ax.invert_yaxis()
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+
+    # Plot ground truth (bottom left)
+    ax = axes[1, 0]
+    target_np = target[0].cpu().numpy()
+    im = ax.imshow(target_np.T, cmap='hot', aspect='equal', vmin=vmin, vmax=vmax,
+                  interpolation='nearest', origin='lower')
+    ax.set_title('Ground Truth')
+    ax.set_xlabel("X coordinate")
+    ax.set_ylabel("Z coordinate")
+    ax.invert_yaxis()
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+
+    # Plot prediction (bottom middle)
+    ax = axes[1, 1]
+    pred_np = prediction[0].cpu().numpy()
+    im = ax.imshow(pred_np.T, cmap='hot', aspect='equal', vmin=vmin, vmax=vmax,
+                  interpolation='nearest', origin='lower')
+    ax.set_title('Prediction')
+    ax.set_xlabel("X coordinate")
+    ax.set_ylabel("Z coordinate")
+    ax.invert_yaxis()
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+
+    # Plot error map (bottom right)
+    ax = axes[1, 2]
+    error = np.abs(target_np - pred_np)
+    im = ax.imshow(error.T, cmap='RdYlBu_r', aspect='equal',
+                  interpolation='nearest', origin='lower')
+    ax.set_title(f'Absolute Error (MAE: {error.mean():.1f} K)')
+    ax.set_xlabel("X coordinate")
+    ax.set_ylabel("Z coordinate")
+    ax.invert_yaxis()
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Error (K)')
+
+    if title:
+        fig.suptitle(title, fontsize=14, y=1.02)
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+
+    return fig
+
+
 def plot_loss_curves(
     train_losses: list[float],
     val_losses: list[float],

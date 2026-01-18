@@ -3,12 +3,16 @@ from pathlib import Path
 import logging
 from typing import Tuple
 
-from lasernet.temperature.model import CNN_LSTM
+from lasernet.data import normalizer
+from lasernet.temperature.model import TemperatureCNN_LSTM
+from lasernet.microstructure.model import MicrostructureCNN_LSTM
 from lasernet.data import LaserDataset
 from lasernet.data.normalizer import DataNormalizer
 import typer
+import pytorch_lightning as pl
 
-from lasernet.utils import FieldType, compute_index
+from lasernet.utils import NetworkType, compute_index
+from lasernet.visualize import plot_prediction_comparison
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +20,8 @@ logger = logging.getLogger(__name__)
 def predict(
     timestep: int,
     slice_index: int,
-    model_path: Path = Path("models/best_temperature_model-v1.ckpt"),
-    norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
-    field_type: FieldType = "temperature",
+    normalizer: DataNormalizer,
+    model: pl.LightningModule,
     denormalize: bool = True,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
@@ -27,20 +30,23 @@ def predict(
     Args:
         timestep: Timestep index to predict
         slice_index: Slice index within the plane to predict
-        model_path: Path to trained model checkpoint
-        norm_stats_path: Path to saved normalization statistics
-        field_type: Type of field data ("temperature" or "microstructure")
-        denormalize: If True, returns actual temperature values (K), otherwise normalized values
+        model_path: Path = Path("models/best_temperature_model-v1.ckpt"),
+        normalizer: DataNormalizer,
+        network: NetworkType = "temperaturecnn",
+        denormalize: bool = True,
 
     Returns:
-        Tuple of (input_sequence, target, prediction) tensors
-        - input_sequence: [seq_len, C, H, W] - input frames
-        - target: [C, H, W] - ground truth field
-        - prediction: [C, H, W] - predicted field
+        input_seq: Input temperature sequence [seq_len, 1, H, W]
+        target: Ground truth temperature [1, H, W]
+        prediction: Predicted temperature [1, H, W]
     """
-    # Load model
-    model = CNN_LSTM().load_from_checkpoint(model_path)
-    logger.info(f"Loaded model from {model_path}")
+
+    if isinstance(model, TemperatureCNN_LSTM):
+        field_type = "temperature"
+    elif isinstance(model, MicrostructureCNN_LSTM):
+        field_type = "microstructure"
+    else:
+        raise ValueError(f"Unknown model type: {type(model)}")
 
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -49,8 +55,6 @@ def predict(
     model.eval()
     logger.info(f"Model loaded (dtype: {model_dtype}, device: {device})")
 
-    # Load normalizer and create test dataset
-    normalizer = DataNormalizer.load(norm_stats_path)
     test_dataset = LaserDataset(
         field_type=field_type,
         split="test",
@@ -92,18 +96,31 @@ def predict(
 def main(
         model_path: Path = Path("models/best_temperature_model-v1.ckpt"),
         norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
-        timestep: int = 13,
-        slice_index: int = 0,
+        network: NetworkType = "temperaturecnn",
+        timestep: int = 18,
+        slice_index: int = 20,
         save_output: bool = True,
     ):
         """Make a prediction and optionally save visualization."""
+
+        # Load model based on network type
+        if network == "temperaturecnn":
+            model = TemperatureCNN_LSTM.load_from_checkpoint(model_path)
+        elif network == "microstructurecnn":
+            model = MicrostructureCNN_LSTM.load_from_checkpoint(model_path)
+        else:
+            raise ValueError(f"Unknown network: {network}")
+        logger.info(f"Loaded {network} model from {model_path}")
+
+        # Load normalizer and create test dataset
+        normalizer = DataNormalizer.load(norm_stats_path)
 
         # Make prediction
         input_seq, target, prediction = predict(
             timestep=timestep,
             slice_index=slice_index,
-            model_path=model_path,
-            norm_stats_path=norm_stats_path,
+            model=model,
+            normalizer=normalizer,
             denormalize=True,
         )
 
@@ -119,43 +136,14 @@ def main(
 
         # Save visualization if requested
         if save_output:
-            import matplotlib.pyplot as plt
-
-            fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-
-            # Plot input sequence (top row)
-            for i in range(3):
-                ax = axes[0, i]
-                im = ax.imshow(input_seq[i, 0], cmap='hot', aspect='auto')
-                ax.set_title(f'Input Frame {i+1}')
-                ax.axis('off')
-                plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
-
-            # Plot ground truth (bottom left)
-            ax = axes[1, 0]
-            im = ax.imshow(target[0], cmap='hot', aspect='auto')
-            ax.set_title('Ground Truth')
-            ax.axis('off')
-            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
-
-            # Plot prediction (bottom middle)
-            ax = axes[1, 1]
-            im = ax.imshow(prediction[0], cmap='hot', aspect='auto')
-            ax.set_title('Prediction')
-            ax.axis('off')
-            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
-
-            # Plot error map (bottom right)
-            ax = axes[1, 2]
-            error = torch.abs(target[0] - prediction[0]).numpy()
-            im = ax.imshow(error, cmap='RdYlBu_r', aspect='auto')
-            ax.set_title('Absolute Error')
-            ax.axis('off')
-            plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Error (K)')
-
-            plt.tight_layout()
-            output_path = f'prediction_timestep_{timestep}_slice_{slice_index}.png'
-            plt.savefig(output_path, dpi=150, bbox_inches='tight')
+            output_path = Path(f'prediction_timestep_{timestep}_slice_{slice_index}.png')
+            plot_prediction_comparison(
+                input_seq=input_seq,
+                target=target,
+                prediction=prediction,
+                save_path=output_path,
+                title=f"Timestep {timestep}, Slice {slice_index}",
+            )
             print(f"\nVisualization saved to {output_path}")
 
 if __name__ == "__main__":

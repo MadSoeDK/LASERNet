@@ -1,23 +1,33 @@
-from pytorch_lightning import Trainer
+from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import logging
 from pathlib import Path
+from typing import List
+
+import typer
 
 from lasernet.data import LaserDataset
-from lasernet.temperature.model import CNN_LSTM
-from lasernet.utils import FieldType
+from lasernet.temperature.model import TemperatureCNN_LSTM
+from lasernet.microstructure.model import MicrostructureCNN_LSTM
+from lasernet.utils import NetworkType
 
 logger = logging.getLogger(__name__)
 
+
 def train(
+    model: LightningModule,
     batch_size: int = 16,
     max_epochs: int = 20,
-    num_workers: int = 2,
-    field_type: FieldType = "temperature",
+    num_workers: int = 0,
 ):
-    model = CNN_LSTM()
+    if isinstance(model, TemperatureCNN_LSTM):
+        field_type = "temperature"
+    elif isinstance(model, MicrostructureCNN_LSTM):
+        field_type = "microstructure"
+    else:
+        raise ValueError(f"Unknown model type: {type(model)}")
 
     # Load training dataset - normalizer is automatically fitted
     train_dataset = LaserDataset(
@@ -47,7 +57,7 @@ def train(
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(
         dirpath="models",
-        filename="best_temperature_model",
+        filename=f"best_{field_type}_model",
         monitor="val_loss",
         mode="min",
         save_top_k=1,
@@ -56,7 +66,7 @@ def train(
     # Configure TensorBoard logger
     tb_logger = TensorBoardLogger(
         save_dir="lightning_logs",
-        name="temperature_model"
+        name=f"{field_type}_model"
     )
 
     trainer = Trainer(
@@ -74,5 +84,38 @@ def train(
     logger.info(f"Training complete! Model saved to {checkpoint_callback.best_model_path}")
 
 
+def main(
+    network: NetworkType = "temperaturecnn",
+    batch_size: int = 16,
+    max_epochs: int = 20,
+    num_workers: int = 0,
+    # model parameters
+    hidden_channels: List[int] = [16,32,64],
+    lstm_hidden: int = 64,
+    lstm_layers: int = 1,
+    learning_rate: float = 1e-3,
+):
+    """Train a model based on specified network type."""
+
+    if network == "temperaturecnn":
+        model = TemperatureCNN_LSTM(hidden_channels=hidden_channels,
+                                    lstm_hidden=lstm_hidden,
+                                    lstm_layers=lstm_layers,
+                                    learning_rate=learning_rate)
+    elif network == "microstructurecnn":
+        model = MicrostructureCNN_LSTM(hidden_channels=hidden_channels,
+                                       lstm_hidden=lstm_hidden,
+                                       lstm_layers=lstm_layers,
+                                       learning_rate=learning_rate)
+    else:
+        raise ValueError(f"Unknown network: {network}")
+
+    train(
+        model=model,
+        batch_size=batch_size,
+        max_epochs=max_epochs,
+        num_workers=num_workers,
+    )
+
 if __name__ == "__main__":
-    train()
+    typer.run(main)

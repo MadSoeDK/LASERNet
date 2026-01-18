@@ -1,9 +1,12 @@
 import re
 from typing import Literal
 
+from matplotlib.pylab import Enum
+
 FieldType = Literal["temperature", "microstructure"]
 PlaneType = Literal["xy", "yz", "xz"]
 SplitType = Literal["train", "val", "test"]
+NetworkType = Literal["temperaturecnn", "microstructurecnn"]
 
 # Column mappings
 AXIS_COLUMNS = {"x": "Points:0", "y": "Points:1", "z": "Points:2"}
@@ -57,7 +60,7 @@ def compute_index(
         slice_index: The slice index within that plane (0 to SLICES_PER_TIMESTEP-1)
 
     Returns:
-        Global index: timestep * SLICES_PER_TIMESTEP + slice_index
+        Index relative to the split: (timestep - split_start) * SLICES_PER_TIMESTEP + slice_index
     """
     # Define total slices per timestep
     SLICES_PER_TIMESTEP = 47 if plane == "xy" else 94 if plane == "xz" else 465 if plane == "yz" else 0
@@ -69,16 +72,23 @@ def compute_index(
     train_end = int(TOTAL_TIMESTEPS * TRAIN_SPLIT_FRACTION)
     val_end = train_end + int(TOTAL_TIMESTEPS * VAL_SPLIT_FRACTION)
 
-    # Validate timestep is in the correct split
+    # Validate timestep is in the correct split and get split start
     if split == "train":
+        split_start = 0
         if timestep < 0 or timestep >= train_end:
             raise ValueError(f"timestep {timestep} out of range for train split [0, {train_end})")
     elif split == "val":
+        split_start = train_end
         if timestep < train_end or timestep >= val_end:
             raise ValueError(f"timestep {timestep} out of range for val split [{train_end}, {val_end})")
     elif split == "test":
+        split_start = val_end
         if timestep < val_end or timestep >= TOTAL_TIMESTEPS:
             raise ValueError(f"timestep {timestep} out of range for test split [{val_end}, {TOTAL_TIMESTEPS})")
+    elif split == "all":
+        split_start = 0
+        if timestep < 0 or timestep >= TOTAL_TIMESTEPS:
+            raise ValueError(f"timestep {timestep} out of range for all split [0, {TOTAL_TIMESTEPS})")
     else:
         raise ValueError(f"Invalid split: {split}")
 
@@ -86,8 +96,9 @@ def compute_index(
     if slice_index < 0 or slice_index >= SLICES_PER_TIMESTEP:
         raise ValueError(f"slice_index {slice_index} out of range for {plane} plane [0, {SLICES_PER_TIMESTEP})")
 
-    # Compute global index
-    return timestep * SLICES_PER_TIMESTEP + slice_index
+    # Compute index relative to the split
+    relative_timestep = timestep - split_start
+    return relative_timestep * SLICES_PER_TIMESTEP + slice_index
 
 
 def compute_timestep_from_index(

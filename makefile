@@ -10,6 +10,9 @@ train:
 evaluate:
 	uv run src/lasernet/evaluate.py
 
+predict:
+	uv run src/lasernet/predict.py
+
 tensorboard:
 	tensorboard --logdir lightning_logs/ --host=0.0.0.0 --port=6006
 
