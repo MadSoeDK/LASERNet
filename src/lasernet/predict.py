@@ -12,7 +12,7 @@ import typer
 import pytorch_lightning as pl
 
 from lasernet.utils import NetworkType, compute_index
-from lasernet.visualize import plot_prediction_comparison
+from lasernet.visualize import plot_temperature_prediction, plot_microstructure_prediction
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +94,8 @@ def predict(
 
 
 def main(
-        model_path: Path = Path("models/best_temperature_model-v1.ckpt"),
-        norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
+        checkpoint_dir: Path = Path("models/"),
+        norm_stats_dir: Path = Path("models/"),
         network: NetworkType = "temperaturecnn",
         timestep: int = 18,
         slice_index: int = 20,
@@ -105,15 +105,19 @@ def main(
 
         # Load model based on network type
         if network == "temperaturecnn":
-            model = TemperatureCNN_LSTM.load_from_checkpoint(model_path)
+            checkpoint_file = checkpoint_dir / f"best_{TemperatureCNN_LSTM.__name__.lower()}.ckpt"
+            model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_file)
+            norm_stats_file = norm_stats_dir / f"temperature_norm_stats.pt"
         elif network == "microstructurecnn":
-            model = MicrostructureCNN_LSTM.load_from_checkpoint(model_path)
+            checkpoint_file = checkpoint_dir / f"best_{MicrostructureCNN_LSTM.__name__.lower()}.ckpt"
+            model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_file)
+            norm_stats_file = norm_stats_dir / f"microstructure_norm_stats.pt"
         else:
             raise ValueError(f"Unknown network: {network}")
-        logger.info(f"Loaded {network} model from {model_path}")
+        logger.info(f"Loaded {network} from {checkpoint_dir}")
 
         # Load normalizer and create test dataset
-        normalizer = DataNormalizer.load(norm_stats_path)
+        normalizer = DataNormalizer.load(norm_stats_file)
 
         # Make prediction
         input_seq, target, prediction = predict(
@@ -124,26 +128,45 @@ def main(
             denormalize=True,
         )
 
+        print(f"Shape: Input sequence: {input_seq.shape}, Target: {target.shape}, Prediction: {prediction.shape}")
+
         # Calculate metrics
         mae = torch.abs(prediction - target).mean().item()
         max_error = torch.abs(prediction - target).max().item()
 
         print(f"\nPrediction Metrics:")
-        print(f"  MAE: {mae:.2f} K")
-        print(f"  Max Error: {max_error:.2f} K")
-        print(f"  Target range: [{target.min():.2f}, {target.max():.2f}] K")
-        print(f"  Prediction range: [{prediction.min():.2f}, {prediction.max():.2f}] K")
+        if network == "microstructurecnn":
+            print(f"  MSE: {((prediction - target) ** 2).mean().item():.4f}")
+            print(f"  MAE: {mae:.4f}")
+            print(f"  Max Error: {max_error:.4f}")
+            print(f"  Target range: [{target.min():.4f}, {target.max():.4f}]")
+            print(f"  Prediction range: [{prediction.min():.4f}, {prediction.max():.4f}]")
+        else:
+            print(f"  MSE: {((prediction - target) ** 2).mean().item():.2f} K²")
+            print(f"  MAE: {mae:.2f} K")
+            print(f"  Max Error: {max_error:.2f} K")
+            print(f"  Target range: [{target.min():.2f}, {target.max():.2f}] K")
+            print(f"  Prediction range: [{prediction.min():.2f}, {prediction.max():.2f}] K")
 
         # Save visualization if requested
         if save_output:
-            output_path = Path(f'prediction_timestep_{timestep}_slice_{slice_index}.png')
-            plot_prediction_comparison(
-                input_seq=input_seq,
-                target=target,
-                prediction=prediction,
-                save_path=output_path,
-                title=f"Timestep {timestep}, Slice {slice_index}",
-            )
+            output_path = Path(f'results/prediction_timestep_{timestep}_slice_{slice_index}.png')
+            if network == "microstructurecnn":
+                plot_microstructure_prediction(
+                    input_seq=input_seq,
+                    target=target,
+                    prediction=prediction,
+                    save_path=output_path,
+                    title=f"Timestep {timestep}, Slice {slice_index}",
+                )
+            else:
+                plot_temperature_prediction(
+                    input_seq=input_seq,
+                    target=target,
+                    prediction=prediction,
+                    save_path=output_path,
+                    title=f"Timestep {timestep}, Slice {slice_index}",
+                )
             print(f"\nVisualization saved to {output_path}")
 
 if __name__ == "__main__":

@@ -182,7 +182,24 @@ backup/
 .github/prompts
 .github/dependabot.yaml
 AGENTS.md
-/data
 lightning_logs/
 models/
 outputs/
+
+# data
+/data/*
+!/data/.gitkeep
+!/data/processed/
+!/data/processed/.gitkeep
+!/data/raw/
+!/data/raw/.gitkeep
+
+# results
+/results/*
+!/results/.gitkeep
+!/results/figures/
+!/results/figures/.gitkeep
+!/results/metrics/
+!/results/metrics/.gitkeep
+/results/predictions/*
+!/results/predictions/.gitkeep

@@ -106,29 +106,33 @@ def evaluate(
 
 
 def main(
-        checkpoint_path: Path = Path("models/best_temperature_model-v1.ckpt"),
-        norm_stats_path: Path = Path("models/temperature_norm_stats.pt"),
+        checkpoint_dir: Path = Path("models/"),
+        norm_stats_dir: Path = Path("models/"),
         network: NetworkType = "temperaturecnn",
         batch_size: int = 16,
         num_workers: int = 0,
 ):
     # Load model from checkpoint based on field type
     if network == "temperaturecnn":
-        model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_path)
+        checkpoint_file = checkpoint_dir / f"best_{TemperatureCNN_LSTM.__name__.lower()}.ckpt"
+        model = TemperatureCNN_LSTM.load_from_checkpoint(checkpoint_file)
+        norm_stats_file = norm_stats_dir / f"temperature_norm_stats.pt"
     elif network == "microstructurecnn":
-        model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_path)
+        checkpoint_file = checkpoint_dir / f"best_{MicrostructureCNN_LSTM.__name__.lower()}.ckpt"
+        model = MicrostructureCNN_LSTM.load_from_checkpoint(checkpoint_file)
+        norm_stats_file = norm_stats_dir / f"microstructure_norm_stats.pt"
     else:
         raise ValueError(f"Unknown model: {network}")
     logger.info(f"Model has {model.count_parameters():,} trainable parameters")
 
     # Load normalizer (saved during training)
-    if not norm_stats_path.exists():
+    if not norm_stats_file.exists():
         raise FileNotFoundError(
-            f"Normalizer not found at {norm_stats_path}. "
+            f"Normalizer not found at {norm_stats_file}. "
             f"Run training first to generate normalization stats."
         )
-    normalizer = DataNormalizer.load(norm_stats_path)
-    logger.info(f"Loaded normalizer from {norm_stats_path}")
+    normalizer = DataNormalizer.load(norm_stats_file)
+    logger.info(f"Loaded normalizer from {norm_stats_file}")
 
     evaluate(
         model=model,

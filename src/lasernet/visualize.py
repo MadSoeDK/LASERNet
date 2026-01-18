@@ -293,7 +293,7 @@ def create_animation_frames(
     return frame_paths
 
 
-def plot_prediction_comparison(
+def plot_temperature_prediction(
     input_seq: torch.Tensor,
     target: torch.Tensor,
     prediction: torch.Tensor,
@@ -302,15 +302,15 @@ def plot_prediction_comparison(
     title: Optional[str] = None,
 ) -> Figure:
     """
-    Plot input sequence, target, prediction, and error in a 2x3 grid.
+    Plot temperature prediction comparison in a 2x3 grid.
 
     Top row: Input sequence frames (3 frames)
     Bottom row: Ground truth, Prediction, Absolute Error
 
     Args:
-        input_seq: Input sequence tensor [seq_len, C, H, W] (expects seq_len=3)
-        target: Target frame tensor [C, H, W]
-        prediction: Prediction tensor [C, H, W]
+        input_seq: Input sequence tensor [seq_len, 1, H, W] (expects seq_len=3)
+        target: Target frame tensor [1, H, W]
+        prediction: Prediction tensor [1, H, W]
         figsize: Figure size (width, height)
         save_path: Optional path to save the figure
         title: Optional title for the figure
@@ -368,6 +368,86 @@ def plot_prediction_comparison(
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Error (K)')
+
+    if title:
+        fig.suptitle(title, fontsize=14, y=1.02)
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+
+    return fig
+
+
+def plot_microstructure_prediction(
+    input_seq: torch.Tensor,
+    target: torch.Tensor,
+    prediction: torch.Tensor,
+    figsize: Tuple[int, int] = (15, 10),
+    save_path: Optional[Path] = None,
+    title: Optional[str] = None,
+) -> Figure:
+    """
+    Plot microstructure prediction comparison using IPF-X RGB colors in a 2x3 grid.
+
+    Top row: Input sequence frames (3 frames)
+    Bottom row: Ground truth, Prediction, Absolute Error
+
+    Args:
+        input_seq: Input sequence tensor [seq_len, 9, H, W] (IPF-X/Y/Z RGB channels)
+        target: Target frame tensor [9, H, W]
+        prediction: Prediction tensor [9, H, W]
+        figsize: Figure size (width, height)
+        save_path: Optional path to save the figure
+        title: Optional title for the figure
+
+    Returns:
+        matplotlib Figure object
+    """
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
+
+    # Plot input sequence (top row) using IPF-X RGB (channels 0-2)
+    for i in range(min(3, input_seq.shape[0])):
+        ax = axes[0, i]
+        frame = input_seq[i, 0:3].cpu().float().numpy()  # [3, H, W]
+        frame_rgb = np.clip(np.transpose(frame, (2, 1, 0)), 0, 1).astype(np.float32)  # [W, H, 3]
+        ax.imshow(frame_rgb, aspect='equal', interpolation='nearest', origin='lower')
+        ax.set_title(f'Input Frame {i+1}')
+        ax.set_xlabel("X coordinate")
+        ax.set_ylabel("Z coordinate")
+        ax.invert_yaxis()
+
+    # Plot ground truth (bottom left)
+    ax = axes[1, 0]
+    target_rgb = np.clip(np.transpose(target[0:3].cpu().float().numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
+    ax.imshow(target_rgb, aspect='equal', interpolation='nearest', origin='lower')
+    ax.set_title('Ground Truth')
+    ax.set_xlabel("X coordinate")
+    ax.set_ylabel("Z coordinate")
+    ax.invert_yaxis()
+
+    # Plot prediction (bottom middle)
+    ax = axes[1, 1]
+    pred_rgb = np.clip(np.transpose(prediction[0:3].cpu().float().numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
+    ax.imshow(pred_rgb, aspect='equal', interpolation='nearest', origin='lower')
+    ax.set_title('Prediction')
+    ax.set_xlabel("X coordinate")
+    ax.set_ylabel("Z coordinate")
+    ax.invert_yaxis()
+
+    # Plot error map (bottom right) - mean error across IPF-X RGB channels
+    ax = axes[1, 2]
+    target_np = target[0:3].cpu().float().numpy()  # [3, H, W]
+    pred_np = prediction[0:3].cpu().float().numpy()  # [3, H, W]
+    error = np.mean(np.abs(target_np - pred_np), axis=0).astype(np.float32)  # [H, W]
+    im = ax.imshow(error.T, cmap='RdYlBu_r', aspect='equal',
+                  interpolation='nearest', origin='lower')
+    ax.set_title(f'Absolute Error (MAE: {error.mean():.4f})')
+    ax.set_xlabel("X coordinate")
+    ax.set_ylabel("Z coordinate")
+    ax.invert_yaxis()
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Error')
 
     if title:
         fig.suptitle(title, fontsize=14, y=1.02)
