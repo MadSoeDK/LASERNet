@@ -57,3 +57,5 @@ hpc:
 	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type microstructure --loss loss-front-combined
 	uv run src/lasernet/predict.py --network transformer_unet_large --field-type microstructure --timestep 18 --loss loss-front-combined
 
+notebook:
+	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/cascaded-prediction-demo.ipynb

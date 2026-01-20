@@ -208,7 +208,7 @@ def main(
                         save_path=output_path,
                         title=f"Timestep {timestep}, Slice {idx}",
                     )
-                else:
+                elif field_type == "temperature":
                     plot_temperature_prediction(
                         input_seq=input_seq,
                         target=target,

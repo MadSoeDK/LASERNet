@@ -192,6 +192,7 @@ lightning_logs/
 
 # results
 /results/
+/notebooks/*.png
 
 # logs
 wandb/
