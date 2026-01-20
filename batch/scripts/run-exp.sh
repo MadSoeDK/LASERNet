@@ -3,15 +3,22 @@
 #!/bin/sh
 ### General options
 ### -- specify queue --
-#BSUB -q hpc
+#BSUB -q gpua100
+#BSUB -gpu "num=1:mode=exclusive_process"
 
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 4
 #BSUB -R "span[hosts=1]"
 ### -- set walltime limit: hh:mm
 #BSUB -W 10:00
-### request 20GB of system-memory
-#BSUB -R "rusage[mem=20GB]"
+### Email address to notify
+### request system-memory
+#BSUB -R "rusage[mem=24GB]"
+### email when job begins (optional)
+#BSUB -B
+### email when job ends             
+#BSUB -N
+#BSUB -u s215805@dtu.dk
 
 ### -- set the job Name --
 #BSUB -J lasernet
@@ -23,4 +30,6 @@
 
 uv sync
 
-make hpc
+export WANDB_PROJECT="lasernet" 
+
+make run-exp

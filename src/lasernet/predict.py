@@ -26,6 +26,7 @@ def predict_timestep(
     model: BaseModel,
     denormalize: bool = True,
     plane: PlaneType = "xz",
+    seq_len: int = 3,
 ) -> dict[str, Any]:
     """
     Make temperature predictions across plane and timestep using trained model.
@@ -50,6 +51,7 @@ def predict_timestep(
         split="test",
         normalize=True,
         normalizer=normalizer,
+        sequence_length=seq_len,
     )
 
     for slice_index in range(get_num_of_slices(plane)):
@@ -124,8 +126,9 @@ def predict_slice(
     # Denormalize if requested
     if denormalize:
         input_seq = test_dataset.denormalize(input_seq)
-        target = test_dataset.denormalize(target)
-        prediction = test_dataset.denormalize(prediction)
+        # Use denormalize_target for target/prediction (handles microstructure channel mismatch)
+        target = test_dataset.denormalize_target(target)
+        prediction = test_dataset.denormalize_target(prediction)
 
     return input_seq, target, prediction
 
@@ -138,6 +141,7 @@ def main(
         save_output: bool = True,
         field_type: FieldType = "temperature",
         loss: LossType = "mse",
+        seq_len: int = 3,
     ):
         """Make a prediction and optionally save visualization."""
         model = get_model_from_checkpoint(
@@ -146,6 +150,10 @@ def main(
             field_type=field_type,
             loss_type=loss,
         )
+
+        if field_type != model.field_type:
+            raise ValueError(f"Field type mismatch: checkpoint model has field_type={model.field_type}, but got field_type={field_type}")
+        
         norm_stats_file = checkpoint_dir / f"{model.field_type}_norm_stats.pt"
 
         logger.info(f"Loaded {network} from {checkpoint_dir}")
@@ -167,6 +175,7 @@ def main(
             model=model,
             denormalize=True,
             plane="xz",
+            seq_len=seq_len,
         )
 
         logger.debug(f"Number of slices: {len(results['targets'])}")

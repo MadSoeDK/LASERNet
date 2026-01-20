@@ -28,7 +28,9 @@ class TransformerUNet(BaseModel):
     - Attention gates at skip connections
 
     Args:
-        input_channels: Number of input channels
+        field_type: Type of field being predicted ("temperature" or "microstructure")
+        input_channels: Number of input channels (1 for temp, 11 for micro+temp)
+        output_channels: Number of output channels (1 for temp, 10 for micro)
         hidden_channels: Channel sizes for each encoder level
         transformer_dim: Transformer hidden dimension
         transformer_heads: Number of attention heads
@@ -44,6 +46,7 @@ class TransformerUNet(BaseModel):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         hidden_channels: List[int] = [64, 128, 256, 512],
         transformer_dim: int = 512,
         transformer_heads: int = 8,
@@ -54,13 +57,16 @@ class TransformerUNet(BaseModel):
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         weight_decay: float = 1e-4,
+        **kwargs,
     ):
         super().__init__(
             input_channels=input_channels,
+            output_channels=output_channels,
             learning_rate=learning_rate,
             loss_fn=loss_fn,
             weight_decay=weight_decay,
             field_type=field_type,
+            **kwargs,
         )
 
         self.hidden_channels = hidden_channels
@@ -126,7 +132,7 @@ class TransformerUNet(BaseModel):
         self.final = nn.Sequential(
             nn.Conv2d(hidden_channels[0], hidden_channels[0] // 2, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(hidden_channels[0] // 2, input_channels, kernel_size=1),
+            nn.Conv2d(hidden_channels[0] // 2, self.output_channels, kernel_size=1),
         )
 
     def forward(self, seq: torch.Tensor) -> torch.Tensor:
@@ -331,12 +337,23 @@ class TransformerUNet_Large(TransformerUNet):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
     ):
+        # Remove params that we're overriding to avoid "multiple values" error
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('transformer_dim', None)
+        kwargs.pop('transformer_heads', None)
+        kwargs.pop('transformer_layers', None)
+        kwargs.pop('transformer_ff_dim', None)
+        kwargs.pop('use_cross_frame_attention', None)
+        kwargs.pop('dropout', None)
+
         super().__init__(
             input_channels=input_channels,
+            output_channels=output_channels,
             hidden_channels=[64, 128, 256, 512, 512],
             transformer_dim=512,
             transformer_heads=8,
@@ -361,12 +378,23 @@ class TransformerUNet_Light(TransformerUNet):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
     ):
+        # Remove params that we're overriding to avoid "multiple values" error
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('transformer_dim', None)
+        kwargs.pop('transformer_heads', None)
+        kwargs.pop('transformer_layers', None)
+        kwargs.pop('transformer_ff_dim', None)
+        kwargs.pop('use_cross_frame_attention', None)
+        kwargs.pop('dropout', None)
+
         super().__init__(
             input_channels=input_channels,
+            output_channels=output_channels,
             hidden_channels=[32, 64, 128, 256],
             transformer_dim=256,
             transformer_heads=4,
@@ -383,7 +411,7 @@ class TransformerUNet_Light(TransformerUNet):
 
 if __name__ == "__main__":
     # Test model
-    model = TransformerUNet(input_channels=1, field_type="temperature")
+    model = TransformerUNet(input_channels=1, output_channels=1, field_type="temperature")
     print(f"TransformerUNet has {model.count_parameters():,} trainable parameters")
 
     # Test forward pass
@@ -394,26 +422,26 @@ if __name__ == "__main__":
     print(f"Output shape: {output.shape}")
 
     # Test large variant
-    model_large = TransformerUNet_Large(input_channels=1, field_type="temperature")
+    model_large = TransformerUNet_Large(input_channels=1, output_channels=1, field_type="temperature")
     print(f"\nTransformerUNet_Large has {model_large.count_parameters():,} trainable parameters")
 
-
-    # test microstructure variant
-    model_micro = TransformerUNet(input_channels=10, field_type="microstructure")
+    # test microstructure variant (input: 11 channels = 10 micro + 1 temp, output: 10 micro)
+    model_micro = TransformerUNet(input_channels=11, output_channels=10, field_type="microstructure")
     print(f"\nTransformerUNet (microstructure) has {model_micro.count_parameters():,} trainable parameters")
 
     # Test forward pass
-    dummy_input_micro = torch.randn(2, 3, 10, 96, 480)
+    dummy_input_micro = torch.randn(2, 3, 11, 96, 480)
     with torch.no_grad():
         output_micro = model_micro(dummy_input_micro)
     print(f"Input shape: {dummy_input_micro.shape}")
     print(f"Output shape: {output_micro.shape}")
-    
+    assert output_micro.shape == (2, 10, 96, 480), f"Expected (2, 10, 96, 480), got {output_micro.shape}"
+
     # Test light variant
-    model_light = TransformerUNet_Light(input_channels=1, field_type="temperature")
+    model_light = TransformerUNet_Light(input_channels=1, output_channels=1, field_type="temperature")
     print(f"\nTransformerUNet_Light has {model_light.count_parameters():,} trainable parameters")
 
     # test large variant
-    model_large = TransformerUNet_Large(input_channels=1, field_type="temperature")
+    model_large = TransformerUNet_Large(input_channels=1, output_channels=1, field_type="temperature")
     print(f"\nTransformerUNet_Large has {model_large.count_parameters():,} trainable parameters")
     

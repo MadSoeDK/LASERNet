@@ -1,3 +1,4 @@
+import os
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -5,6 +6,7 @@ from torch.utils.data import DataLoader
 import logging
 import torch
 from pathlib import Path
+from pytorch_lightning.loggers import WandbLogger
 
 import typer
 
@@ -12,8 +14,12 @@ from lasernet.data import LaserDataset
 from lasernet.models.base import BaseModel
 from lasernet.laser_types import FieldType, LossType, NetworkType
 from lasernet.utils import get_checkpoint_path, get_loss_fn, get_loss_type, get_model
+# load env variables
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
+
 
 
 def train(
@@ -21,6 +27,8 @@ def train(
     batch_size: int = 32,
     max_epochs: int = 20,
     num_workers: int = 0,
+    seq_len: int = 3,
+    use_wandb: bool = True,
 ):
     if torch.cuda.is_available():
         device_name = torch.cuda.get_device_name(0)
@@ -35,6 +43,7 @@ def train(
         field_type=model.field_type,
         split="train",
         normalize=True,
+        sequence_length=seq_len,
     )
 
     # Validation dataset shares the normalizer (prevents data leakage)
@@ -43,6 +52,7 @@ def train(
         split="val",
         normalize=True,
         normalizer=train_dataset.normalizer,
+        sequence_length=seq_len,
     )
 
     # Save normalizer for inference
@@ -78,10 +88,19 @@ def train(
         name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
     )
 
+    # initialise the wandb logger
+    wandb_logger = None
+    if use_wandb:
+        wandb_logger = WandbLogger(
+            name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem, 
+            project=os.getenv("WANDB_PROJECT")
+            )
+        wandb_logger.experiment.config["batch_size"] = batch_size
+
     trainer = Trainer(
         max_epochs=max_epochs,
         callbacks=[checkpoint_callback, early_stopping_callback],
-        logger=tb_logger,
+        logger=wandb_logger if use_wandb else tb_logger,
     )
 
     trainer.fit(
@@ -96,9 +115,11 @@ def train(
 def main(
     network: NetworkType = "deep_cnn_lstm_large",
     field_type: FieldType = "temperature",
+    # training parameters
     batch_size: int = 16,
     max_epochs: int = 20,
     num_workers: int = 0,
+    seq_len: int = 3,
     # model parameters
     learning_rate: float = 1e-3,
     # loss parameters
@@ -107,9 +128,10 @@ def main(
     t_liquidus: float = 1620.0,
     solidification_weight: float = 0.7,
     global_weight: float = 0.3,
+    # misc
+    use_wandb: bool = True,
 ):
     """Train a model based on specified network type and field type."""
-
     loss_fn = get_loss_fn(loss, T_solidus=t_solidus, T_liquidus=t_liquidus, solidification_weight=solidification_weight, global_weight=global_weight)
 
     # Note: _Large variants have hardcoded architecture, so only pass learning_rate and loss_fn
@@ -120,11 +142,19 @@ def main(
 
     model = get_model(field_type=field_type, network=network, **model_params)
 
+    # check if model is already trained
+    checkpoint_path = get_checkpoint_path(Path("models/"), model, loss, model.field_type)
+    if checkpoint_path.exists():
+        logger.info(f"Model checkpoint already exists at {checkpoint_path}. Skipping training.")
+        return
+
     train(
         model=model,
         batch_size=batch_size,
         max_epochs=max_epochs,
         num_workers=num_workers,
+        seq_len=seq_len,
+        use_wandb=use_wandb,
     )
 
 if __name__ == "__main__":

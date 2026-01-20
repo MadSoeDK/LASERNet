@@ -62,17 +62,18 @@ class LaserDataset(Dataset):
         self.downsample = downsample  # Store for reference (already applied in preprocessing)
 
         # Determine number of channels
-        self.num_channels = 1 if field_type == "temperature" else 10
+        # For temperature: 1 channel (temperature only)
+        # For microstructure: 11 input channels (10 micro + 1 temp), but 10 target channels
+        self.num_input_channels = 1 if field_type == "temperature" else 11
+        self.num_target_channels = 1 if field_type == "temperature" else 10
 
         # Get number of slices per timestep for this plane
         self.slices_per_timestep = get_num_of_slices(plane)
 
         self.data: torch.Tensor
+        self.temperature_data: torch.Tensor
         self.timesteps: int
-        self.data, self.timesteps = self._load_data()
-
-        # Load temperature data for mask/weighting (needed for both field types)
-        self.temperature_data: torch.Tensor = self._load_temperature_data()
+        self.data, self.temperature_data, self.timesteps = self._load_data()
 
         # Initialize normalizer
         self.normalizer: Optional[DataNormalizer] = None
@@ -89,11 +90,11 @@ class LaserDataset(Dataset):
                     raise ValueError(
                         "Must provide normalizer for val/test splits to prevent data leakage"
                     )
-                self.normalizer = DataNormalizer(num_channels=self.num_channels)
+                self.normalizer = DataNormalizer(num_channels=self.num_input_channels)
                 self.normalizer.fit(self.data)
-                logger.info(f"{split} split fitted normalizer for {self.num_channels} channel(s)")
+                logger.info(f"{split} split fitted normalizer for {self.num_input_channels} channel(s)")
 
-            # Apply normalization
+            # Apply normalization to input data only (temperature_data stays unnormalized for masking)
             self.data = self.normalizer.transform(self.data)
 
     def _extract_plane(self, data: torch.Tensor) -> torch.Tensor:
@@ -128,22 +129,49 @@ class LaserDataset(Dataset):
         else:
             raise ValueError(f"Invalid plane: {self.plane}")
 
-    def _load_data(self) -> tuple[torch.Tensor, int]:
+    def _load_data(self) -> tuple[torch.Tensor, torch.Tensor, int]:
         """Load field data from .pt files and extract 2D planar slices.
 
         Note: Data is already downsampled during preprocessing.
 
+        For temperature mode:
+            - data: [N, 1, H, W] temperature only
+            - temperature_data: [N, 1, H, W] same as data (unnormalized copy for masking)
+
+        For microstructure mode:
+            - data: [N, 11, H, W] microstructure (10 ch) + temperature (1 ch) concatenated
+            - temperature_data: [N, 1, H, W] temperature only (unnormalized for masking)
+
         Returns:
-            plane_data: [N, C, H, W] where N = T * perpendicular_axis_size,
-                C=1 for temperature, C=10 for microstructure
+            data: [N, C, H, W] - main data tensor
+            temperature_data: [N, 1, H, W] - unnormalized temperature for masking
             timesteps: Number of time steps T
         """
-        data_file = self.data_path / f"{self.field_type}.pt"
-        if not data_file.exists():
-            raise FileNotFoundError(f"{self.field_type.capitalize()} data not found at {data_file}. Please run preprocessing.py first.")
+        # Always load temperature data
+        temp_file = self.data_path / "temperature.pt"
+        if not temp_file.exists():
+            raise FileNotFoundError(f"Temperature data not found at {temp_file}. Please run preprocessing.py first.")
 
-        loaded = torch.load(data_file)
-        data = loaded["data"]  # [T, C, X, Y, Z] where C=1 or C=10
+        loaded_temp = torch.load(temp_file)
+        temp_data = loaded_temp["data"]  # [T, 1, X, Y, Z]
+
+        if self.field_type == "temperature":
+            data = temp_data  # [T, 1, X, Y, Z]
+
+        elif self.field_type == "microstructure":
+            # Load microstructure and concatenate with temperature
+            micro_file = self.data_path / "microstructure.pt"
+            if not micro_file.exists():
+                raise FileNotFoundError(f"Microstructure data not found at {micro_file}. Please run preprocessing.py first.")
+
+            loaded_micro = torch.load(micro_file)
+            micro_data = loaded_micro["data"]  # [T, 10, X, Y, Z]
+
+            # Concatenate: [T, 11, H, W] with temperature as last channel
+            data = torch.cat([micro_data, temp_data], dim=1)  # [T, 11, X, Y, Z]
+
+        else:
+            raise ValueError(f"Unknown field type: {self.field_type}. Use 'temperature' or 'microstructure'.")
 
         # Split by timestep
         T = data.shape[0]
@@ -151,49 +179,24 @@ class LaserDataset(Dataset):
 
         if self.split == "train":
             data = data[train_idx]
+            temp_data = temp_data[train_idx]
             T = train_idx.stop - train_idx.start
         elif self.split == "val":
             data = data[val_idx]
+            temp_data = temp_data[val_idx]
             T = val_idx.stop - val_idx.start
         elif self.split == "test":
             data = data[test_idx]
+            temp_data = temp_data[test_idx]
             T = test_idx.stop - test_idx.start
         else:
             raise ValueError(f"Invalid split: {self.split}")
 
         # Extract all 2D planar slices as independent samples
-        data = self._extract_plane(data)  # [N, C, H, W] with N = T * slices_along_perpendicular_axis
+        data = self._extract_plane(data)  # [N, C, H, W]
+        temperature_data = self._extract_plane(temp_data)  # [N, 1, H, W]
 
-        return data, T
-
-    def _load_temperature_data(self) -> torch.Tensor:
-        """Load temperature data for mask/weighting computation.
-
-        Returns:
-            temperature_data: [N, 1, H, W] - temperature field (unnormalized)
-        """
-        temp_file = self.data_path / "temperature.pt"
-        if not temp_file.exists():
-            raise FileNotFoundError(f"Temperature data not found at {temp_file}. Please run preprocessing.py first.")
-
-        loaded = torch.load(temp_file)
-        data = loaded["data"]  # [T, 1, X, Y, Z]
-
-        # Apply same split as main data
-        T = data.shape[0]
-        train_idx, val_idx, test_idx = compute_split_indices(T)
-
-        if self.split == "train":
-            data = data[train_idx]
-        elif self.split == "val":
-            data = data[val_idx]
-        elif self.split == "test":
-            data = data[test_idx]
-
-        # Extract planar slices (reuse same method)
-        data = self._extract_plane(data)  # [N, 1, H, W]
-
-        return data
+        return data, temperature_data, T
 
     def __len__(self) -> int:
         """Number of valid starting positions for temporal sequences.
@@ -235,9 +238,13 @@ class LaserDataset(Dataset):
 
         Returns:
             input_seq: [seq_len, C, H, W] - input temporal sequence
+                - temperature mode: C=1 (temperature)
+                - microstructure mode: C=11 (10 microstructure + 1 temperature)
             target: [C, H, W] - target frame to predict
-            temperature: [H, W] - temperature field at target timestep (unnormalized)
-            mask: [H, W] - valid region mask (1 where temperature > 300K)
+                - temperature mode: C=1 (temperature at t+1)
+                - microstructure mode: C=10 (microstructure at t+1, no temperature)
+            target_temperature: [1, H, W] - temperature at target timestep (for model conditioning)
+            target_temperature_mask: [H, W] - valid region mask (1 where temperature > 300K)
         """
         # Decompose idx into spatial slice and temporal sequence offset
         slice_idx = idx % self.slices_per_timestep  # Which spatial slice (0 to slices_per_timestep-1)
@@ -255,19 +262,23 @@ class LaserDataset(Dataset):
         # Extract target frame: offset timesteps ahead from last input frame
         target_timestep = temporal_offset + self.sequence_length + self.target_offset - 1
         target_idx = target_timestep * self.slices_per_timestep + slice_idx
-        target = self.data[target_idx]  # [C, H, W]
+
+        # Get target based on field type
+        if self.field_type == "temperature":
+            target = self.data[target_idx]  # [1, H, W]
+        else:
+            # Microstructure mode: target is microstructure only (first 10 channels)
+            target = self.data[target_idx, :10]  # [10, H, W]
 
         logger.debug(f"Fetched sample idx={idx}: slice_idx={slice_idx}, temporal_offset={temporal_offset}, input_indices={input_indices}, target_idx={target_idx}, input_seq shape={input_seq.shape}, target shape={target.shape}")
 
-        logger.debug(f"Fetched sample idx={idx}: slice_idx={slice_idx}, temporal_offset={temporal_offset}, input_indices={input_indices}, target_idx={target_idx}, input_seq shape={input_seq.shape}, target shape={target.shape}")
-
-        # Get temperature at target timestep (squeeze channel dim)
-        temperature = self.temperature_data[target_idx, 0]  # [H, W]
+        # Get temperature at target timestep (unnormalized, for model conditioning and masking)
+        target_temperature = self.temperature_data[target_idx]  # [1, H, W]
 
         # Create mask: valid where temperature > ambient (300K)
-        mask = (temperature > 300.0).bool()  # [H, W]
+        target_temperature_mask = (target_temperature[0] > 300.0).bool()  # [H, W]
 
-        return input_seq, target, temperature, mask
+        return input_seq, target, target_temperature, target_temperature_mask
 
     @property
     def shape(self) -> torch.Size:
@@ -275,12 +286,14 @@ class LaserDataset(Dataset):
         return self.data.shape
 
     def denormalize(self, data: torch.Tensor) -> torch.Tensor:
-        """Denormalize data back to original range.
+        """Denormalize input data back to original range.
 
         Only works if dataset was created with normalize=True.
+        Use this for input sequences (all channels).
 
         Args:
             data: Normalized data with shape [N, C, H, W] or [C, H, W]
+                  where C = num_input_channels
 
         Returns:
             Denormalized data in original range
@@ -288,6 +301,48 @@ class LaserDataset(Dataset):
         if self.normalizer is None:
             raise ValueError("Dataset was not normalized, cannot denormalize")
         return self.normalizer.inverse_transform(data)
+
+    def denormalize_target(self, data: torch.Tensor) -> torch.Tensor:
+        """Denormalize target/prediction data back to original range.
+
+        For microstructure mode, targets have fewer channels than inputs
+        (10 microstructure channels vs 11 input channels).
+        This method handles the channel mismatch by only using the
+        appropriate channel statistics.
+
+        Args:
+            data: Normalized data with shape [N, C, H, W] or [C, H, W]
+                  where C = num_target_channels
+
+        Returns:
+            Denormalized data in original range
+        """
+        if self.normalizer is None:
+            raise ValueError("Dataset was not normalized, cannot denormalize")
+
+        # For temperature or when input_channels == output_channels, use standard denormalization
+        if self.num_input_channels == self.num_target_channels:
+            return self.normalizer.inverse_transform(data)
+
+        # For microstructure: target has 10 channels, normalizer has 11
+        # Use only the first 10 channel stats (microstructure channels)
+        squeeze = data.dim() == 3
+        if squeeze:
+            data = data.unsqueeze(0)
+
+        if (self.normalizer.channel_mins is None) or (self.normalizer.channel_maxs is None):
+            raise ValueError("Normalizer channel mins/maxs are not set.")
+
+        # Get only the microstructure channel stats (first 10 of 11)
+        mins = self.normalizer.channel_mins[:self.num_target_channels].view(1, -1, 1, 1).to(data.device, data.dtype)
+        maxs = self.normalizer.channel_maxs[:self.num_target_channels].view(1, -1, 1, 1).to(data.device, data.dtype)
+
+        denormalized = data * (maxs - mins) + mins
+
+        if squeeze:
+            denormalized = denormalized.squeeze(0)
+
+        return denormalized
 
     def get_global_timestep(self, index: int) -> int:
         """Get global timestep corresponding to dataset index.
@@ -315,7 +370,8 @@ if __name__ == "__main__":
         print(f"  Number of samples: {len(dataset)}")
         print(f"  Data shape: {dataset.shape}")
         print(f"  Timesteps: {dataset.timesteps}")
-        print(f"  Num channels: {dataset.num_channels}")
+        print(f"  Num input channels: {dataset.num_input_channels}")
+        print(f"  Num target channels: {dataset.num_target_channels}")
         print(f"  Data type: {dataset.data.dtype}")
         print(f"  Downsample: {dataset.downsample}")
         print(f"  Normalized: {dataset.normalize}")
@@ -329,13 +385,9 @@ if __name__ == "__main__":
         print(f"\n  Sample shapes:")
         print(f"    Input sequence: {input_seq.shape}")
         print(f"    Target: {target.shape}")
-        print(f"    Temperature: {temperature.shape}")
+        print(f"    Target temperature: {temperature.shape}")
         print(f"    Mask: {mask.shape}")
         print(f"    Input type: {input_seq.dtype}")
         print(f"    Target type: {target.dtype}")
-
-        # Test denormalization roundtrip
-        denorm_target = dataset.denormalize(target)
-        print("\n  Denormalization test:")
-        print(f"    Normalized target range: [{target.min():.4f}, {target.max():.4f}]")
-        print(f"    Denormalized target range: [{denorm_target.min():.2f}, {denorm_target.max():.2f}]")
+        print(f"    Temperature range: [{temperature.min():.2f}, {temperature.max():.2f}]")
+        print(f"    Mask sum: {mask.sum()} / {mask.numel()} pixels active")

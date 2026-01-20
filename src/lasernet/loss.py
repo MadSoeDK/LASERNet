@@ -1,5 +1,147 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+
+class GradientWeightedMSELoss(nn.Module):
+    """
+    MSE loss with spatial weighting based on temperature gradients.
+
+    Applies higher weights to regions with sharp temperature gradients,
+    which correspond to the solidification front and melt pool boundaries.
+    This forces the model to accurately capture these critical transition regions.
+
+    Parameters:
+        gradient_weight: How much to weight high-gradient regions (default 10.0)
+        base_weight: Minimum weight for low-gradient regions (default 0.1)
+        gradient_threshold: Gradients below this are considered "low" (default 0.01)
+        normalize_gradients: Whether to normalize gradients to [0, 1] range
+    """
+
+    def __init__(
+        self,
+        gradient_weight: float = 10.0,
+        base_weight: float = 0.1,
+        gradient_threshold: float = 0.01,
+        normalize_gradients: bool = True,
+    ):
+        super().__init__()
+        self.gradient_weight = gradient_weight
+        self.base_weight = base_weight
+        self.gradient_threshold = gradient_threshold
+        self.normalize_gradients = normalize_gradients
+
+        # Sobel kernels for gradient computation
+        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
+        sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
+        self.register_buffer('sobel_x', sobel_x.view(1, 1, 3, 3))
+        self.register_buffer('sobel_y', sobel_y.view(1, 1, 3, 3))
+
+    def _compute_gradient_magnitude(self, field: torch.Tensor) -> torch.Tensor:
+        """
+        Compute spatial gradient magnitude using Sobel operators.
+
+        Args:
+            field: Input field [B, H, W] or [B, 1, H, W]
+
+        Returns:
+            gradient_mag: Gradient magnitude [B, H, W]
+        """
+        if field.dim() == 3:
+            field = field.unsqueeze(1)  # [B, 1, H, W]
+
+        # Ensure kernels are on same device and dtype
+        sobel_x = self.sobel_x.to(field.device, field.dtype)
+        sobel_y = self.sobel_y.to(field.device, field.dtype)
+
+        # Compute gradients with padding to maintain size
+        grad_x = F.conv2d(field, sobel_x, padding=1)
+        grad_y = F.conv2d(field, sobel_y, padding=1)
+
+        # Gradient magnitude
+        gradient_mag = torch.sqrt(grad_x**2 + grad_y**2 + 1e-8).squeeze(1)  # [B, H, W]
+
+        return gradient_mag
+
+    def _compute_weights(
+        self,
+        target: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute spatial weight map based on target gradients.
+
+        Args:
+            target: Target field [B, C, H, W]
+            mask: Valid region mask [B, H, W]
+
+        Returns:
+            weight: Spatial weight map [B, H, W]
+        """
+        # Use first channel (temperature) for gradient computation
+        # For temperature-only models, C=1
+        # For combined models, first channel is temperature
+        field = target[:, 0, :, :]  # [B, H, W]
+
+        gradient_mag = self._compute_gradient_magnitude(field)  # [B, H, W]
+
+        if self.normalize_gradients:
+            # Normalize per-batch to [0, 1]
+            grad_min = gradient_mag.amin(dim=(1, 2), keepdim=True)
+            grad_max = gradient_mag.amax(dim=(1, 2), keepdim=True)
+            grad_range = grad_max - grad_min + 1e-8
+            gradient_mag = (gradient_mag - grad_min) / grad_range
+
+        # Create weight map: high weight for high gradients
+        # Linear interpolation between base_weight and gradient_weight
+        weight = self.base_weight + (self.gradient_weight - self.base_weight) * gradient_mag
+
+        # Apply valid region mask
+        weight = weight * mask.float()
+
+        return weight
+
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        temperature: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute gradient-weighted MSE loss.
+
+        Args:
+            pred: Predictions [B, C, H, W]
+            target: Targets [B, C, H, W]
+            temperature: Temperature field [B, H, W] (unused, kept for API compatibility)
+            mask: Valid region mask [B, H, W]
+
+        Returns:
+            loss: Scalar weighted MSE loss
+        """
+        # Compute spatial weights based on target gradients
+        weight = self._compute_weights(target, mask)  # [B, H, W]
+
+        # Compute element-wise MSE
+        mse = (pred - target) ** 2  # [B, C, H, W]
+
+        # Expand weights for all channels
+        weight_expanded = weight.unsqueeze(1)  # [B, 1, H, W]
+
+        # Apply weights
+        weighted_mse = mse * weight_expanded  # [B, C, H, W]
+
+        # Compute mean loss (normalized by total weight)
+        total_weight = weight.sum() * pred.size(1)
+
+        if total_weight > 0:
+            loss = weighted_mse.sum() / total_weight
+        else:
+            loss = mse.mean()
+
+        return loss
+
 
 class SolidificationWeightedMSELoss(nn.Module):
     """

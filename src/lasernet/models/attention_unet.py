@@ -53,6 +53,7 @@ class AttentionUNet(BaseModel):
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         weight_decay: float = 1e-4,
+        **kwargs,
     ):
         super().__init__(
             input_channels=input_channels,
@@ -60,6 +61,7 @@ class AttentionUNet(BaseModel):
             loss_fn=loss_fn,
             weight_decay=weight_decay,
             field_type=field_type,
+            **kwargs,
         )
 
         self.hidden_channels = hidden_channels
@@ -221,6 +223,13 @@ class AttentionUNet_Deep(AttentionUNet):
         field_type: FieldType = "temperature",
         **kwargs,
     ):
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('transformer_dim', None)
+        kwargs.pop('lstm_hidden', None)
+        kwargs.pop('lstm_layers', None)
+        kwargs.pop('use_cbam', None)
+        kwargs.pop('use_self_attention', None)
+        kwargs.pop('dropout', None)
         super().__init__(
             input_channels=input_channels,
             hidden_channels=[64, 128, 256, 512, 512],
@@ -231,6 +240,7 @@ class AttentionUNet_Deep(AttentionUNet):
             dropout=0.1,
             learning_rate=learning_rate,
             loss_fn=loss_fn,
+            field_type=field_type,
             **kwargs,
         )
 
@@ -249,6 +259,13 @@ class AttentionUNet_Light(AttentionUNet):
         field_type: FieldType = "temperature",
         **kwargs,
     ):
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('transformer_dim', None)
+        kwargs.pop('lstm_hidden', None)
+        kwargs.pop('lstm_layers', None)
+        kwargs.pop('use_cbam', None)
+        kwargs.pop('use_self_attention', None)
+        kwargs.pop('dropout', None)
         super().__init__(
             input_channels=input_channels,
             hidden_channels=[32, 64, 128, 256],

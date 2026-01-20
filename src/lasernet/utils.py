@@ -170,26 +170,32 @@ def loss_name_from_type(loss_str: LossType) -> str:
     
 def get_model(field_type: FieldType, network: NetworkType, **kwargs):
     """Return model class based on field type and network type."""
-    # Set input_channels based on field_type
+    # Set input_channels and output_channels based on field_type
+    # For microstructure: input has 11 channels (10 micro + 1 temp), output has 10 (micro only)
+    # Temperature at t+1 is provided separately for conditioning
     if field_type == "temperature":
         input_channels = len(TEMPERATURE_COLUMNS)  # 1
+        output_channels = len(TEMPERATURE_COLUMNS)  # 1
     elif field_type == "microstructure":
-        input_channels = len(MICROSTRUCTURE_COLUMNS)  # 10
+        # Input: 10 microstructure + 1 temperature = 11 channels
+        # Output: 10 microstructure channels (temperature provided separately)
+        input_channels = len(MICROSTRUCTURE_COLUMNS) + len(TEMPERATURE_COLUMNS)  # 11
+        output_channels = len(MICROSTRUCTURE_COLUMNS)  # 10
     else:
         raise ValueError(f"Unknown field type: {field_type}")
 
     if network == "deep_cnn_lstm_large":
-        return DeepCNN_LSTM_Large(field_type=field_type, input_channels=input_channels, **kwargs)
+        return DeepCNN_LSTM_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "transformer_unet_large":
-        return TransformerUNet_Large(field_type=field_type, input_channels=input_channels, **kwargs)
+        return TransformerUNet_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     else:
         raise ValueError(f"Unsupported network type: {network}")
     
 def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field_type: FieldType, loss_type: LossType):
     if network == "deep_cnn_lstm_large":
-        model_class = DeepCNN_LSTM_Large.load_from_checkpoint(f"{checkpoint_path}/best_{DeepCNN_LSTM_Large.__name__.lower()}_{field_type}_{loss_name_from_type(loss_type)}.ckpt")
+        model_class = DeepCNN_LSTM_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(DeepCNN_LSTM_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "transformer_unet_large":
-        model_class = TransformerUNet_Large.load_from_checkpoint(f"{checkpoint_path}/best_{TransformerUNet_Large.__name__.lower()}_{field_type}_{loss_name_from_type(loss_type)}.ckpt")
+        model_class = TransformerUNet_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(TransformerUNet_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
     else:
         raise ValueError(f"Unsupported network type: {network}")
     return model_class
@@ -214,5 +220,8 @@ def get_loss_type(loss_fn: nn.Module) -> LossType:
     
 def get_checkpoint_path(checkpoint_dir: Path, model: BaseModel, loss: LossType, field_type: FieldType) -> Path:
     """Construct checkpoint path based on model and loss type."""
-    return checkpoint_dir / f"best_{model.__class__.__name__.lower()}_{field_type}_{loss_name_from_type(loss)}.ckpt"
+    return checkpoint_dir / (get_model_filename(model, loss, field_type) + ".ckpt")
 
+def get_model_filename(model: BaseModel, loss: LossType, field_type: FieldType) -> str:
+    """Construct model filename based on model and loss type."""
+    return f"best_{model.__class__.__name__.lower()}_{field_type}_{loss_name_from_type(loss)}"

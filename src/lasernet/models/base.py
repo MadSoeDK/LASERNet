@@ -31,7 +31,9 @@ class BaseModel(pl.LightningModule):
     - forward(seq): The forward pass
 
     Args:
-        input_channels: Number of input channels (1 for temperature, 10 for microstructure)
+        field_type: Type of field being predicted ("temperature" or "microstructure")
+        input_channels: Number of input channels (1 for temperature, 11 for microstructure)
+        output_channels: Number of output channels (1 for temperature, 10 for microstructure)
         learning_rate: Learning rate for optimizer
         loss_fn: Loss function module
         weight_decay: Weight decay for AdamW optimizer
@@ -43,16 +45,19 @@ class BaseModel(pl.LightningModule):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         weight_decay: float = 1e-4,
         use_scheduler: bool = True,
-        scheduler_T0: int = 50,
+        scheduler_T0: int = 20,
     ):
         super().__init__()
 
         self._field_type: FieldType = field_type
         self.input_channels = input_channels
+        # Default output_channels to input_channels for backward compatibility
+        self.output_channels = output_channels if output_channels is not None else input_channels
         self.learning_rate = learning_rate
         self.loss_fn = loss_fn
         self.weight_decay = weight_decay
@@ -130,14 +135,17 @@ class BaseModel(pl.LightningModule):
 
     def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         """Test step for PyTorch Lightning."""
-        x, y = batch[:2]  # Test might not have temperature/mask
+        x, y, temperature, mask = batch
         y_hat = self(x)
 
         mse = nn.functional.mse_loss(y_hat, y)
         mae = nn.functional.l1_loss(y_hat, y)
+        # Use configured loss function instead of hardcoded CombinedLoss
+        configured_loss = self._compute_loss(y_hat, y, temperature, mask)
 
         self.log('test_mse', mse, on_step=False, on_epoch=True)
         self.log('test_mae', mae, on_step=False, on_epoch=True)
+        self.log('test_loss', configured_loss, on_step=False, on_epoch=True)
 
         return mse
 

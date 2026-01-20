@@ -193,4 +193,6 @@ lightning_logs/
 # results
 /results/
 
+# logs
+wandb/
 batch/logs/

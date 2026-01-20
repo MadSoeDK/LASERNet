@@ -31,7 +31,9 @@ class DeepCNN_LSTM(BaseModel):
     This model has ~45-50M parameters, ~250x larger than the original.
 
     Args:
-        input_channels: Number of input channels (1 for temp, 10 for micro)
+        field_type: Type of field being predicted ("temperature" or "microstructure")
+        input_channels: Number of input channels (1 for temp, 11 for micro+temp)
+        output_channels: Number of output channels (1 for temp, 10 for micro)
         hidden_channels: Channel sizes for each encoder level
         lstm_hidden: ConvLSTM hidden dimension
         lstm_layers: Number of ConvLSTM layers
@@ -45,6 +47,7 @@ class DeepCNN_LSTM(BaseModel):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         hidden_channels: List[int] = [64, 128, 256, 512, 512],
         lstm_hidden: int = 256,
         lstm_layers: int = 3,
@@ -57,6 +60,7 @@ class DeepCNN_LSTM(BaseModel):
         super().__init__(
             field_type=field_type,
             input_channels=input_channels,
+            output_channels=output_channels,
             learning_rate=learning_rate,
             loss_fn=loss_fn,
             weight_decay=weight_decay,
@@ -106,11 +110,11 @@ class DeepCNN_LSTM(BaseModel):
         # dec1: hidden_channels[1] + enc1
         self.dec1 = DoubleConvBlock(hidden_channels[1] + hidden_channels[0], hidden_channels[0], dropout)
 
-        # Final output projection
+        # Final output projection (output_channels may differ from input_channels)
         self.final = nn.Sequential(
             nn.Conv2d(hidden_channels[0], hidden_channels[0] // 2, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(hidden_channels[0] // 2, input_channels, kernel_size=1),
+            nn.Conv2d(hidden_channels[0] // 2, self.output_channels, kernel_size=1),
         )
 
         # Register hooks for visualization
@@ -225,6 +229,7 @@ class DeepCNN_LSTM_Large(DeepCNN_LSTM):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
@@ -239,6 +244,7 @@ class DeepCNN_LSTM_Large(DeepCNN_LSTM):
         super().__init__(
             field_type=field_type,
             input_channels=input_channels,
+            output_channels=output_channels,
             hidden_channels=[128, 256, 512, 768, 768],
             lstm_hidden=512,
             lstm_layers=4,
@@ -261,13 +267,21 @@ class DeepCNN_LSTM_Medium(DeepCNN_LSTM):
         self,
         field_type: FieldType,
         input_channels: int = 1,
+        output_channels: int | None = None,
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
     ):
+
+        # Remove params that we're overriding to avoid "multiple values" error
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('lstm_hidden', None)
+        kwargs.pop('lstm_layers', None)
+        kwargs.pop('dropout', None)
         super().__init__(
             field_type=field_type,
             input_channels=input_channels,
+            output_channels=output_channels,
             hidden_channels=[32, 64, 128, 256, 256],
             lstm_hidden=128,
             lstm_layers=2,
@@ -280,8 +294,8 @@ class DeepCNN_LSTM_Medium(DeepCNN_LSTM):
 
 if __name__ == "__main__":
     # Test model instantiation and forward pass
-    model = DeepCNN_LSTM(field_type="temperature", input_channels=1)
-    print(f"DeepCNN_LSTM has {model.count_parameters():,} trainable parameters")
+    model = DeepCNN_LSTM(field_type="temperature", input_channels=1, output_channels=1)
+    print(f"DeepCNN_LSTM (temperature) has {model.count_parameters():,} trainable parameters")
 
     # Test with dummy data
     dummy_input = torch.randn(2, 3, 1, 96, 480)  # [B, seq_len, C, H, W]
@@ -291,31 +305,28 @@ if __name__ == "__main__":
     print(f"Output shape: {output.shape}")
 
     # Test large variant
-    model_large = DeepCNN_LSTM_Large(field_type="temperature", input_channels=1)
-    print(f"\nDeepCNN_LSTM_Large has {model_large.count_parameters():,} trainable parameters")
+    model_large = DeepCNN_LSTM_Large(field_type="temperature", input_channels=1, output_channels=1)
+    print(f"\nDeepCNN_LSTM_Large (temperature) has {model_large.count_parameters():,} trainable parameters")
 
     # Test medium variant
-    model_medium = DeepCNN_LSTM_Medium(field_type="temperature", input_channels=1)
-    print(f"DeepCNN_LSTM_Medium has {model_medium.count_parameters():,} trainable parameters")
+    model_medium = DeepCNN_LSTM_Medium(field_type="temperature", input_channels=1, output_channels=1)
+    print(f"DeepCNN_LSTM_Medium (temperature) has {model_medium.count_parameters():,} trainable parameters")
 
-    # Test microstructure variants
-    model_micro = DeepCNN_LSTM(field_type="microstructure", input_channels=10)
+    # Test microstructure variants (input: 11 channels = 10 micro + 1 temp, output: 10 micro)
+    model_micro = DeepCNN_LSTM(field_type="microstructure", input_channels=11, output_channels=10)
     print(f"\nDeepCNN_LSTM (microstructure) has {model_micro.count_parameters():,} trainable parameters")
 
-    dummy_input_micro = torch.randn(2, 3, 10, 96, 480)  # [B, seq_len, C, H, W]
+    dummy_input_micro = torch.randn(2, 3, 11, 96, 480)  # [B, seq_len, C, H, W]
     with torch.no_grad():
         output_micro = model_micro(dummy_input_micro)
     print(f"Input shape (microstructure): {dummy_input_micro.shape}")
     print(f"Output shape (microstructure): {output_micro.shape}")
+    assert output_micro.shape == (2, 10, 96, 480), f"Expected (2, 10, 96, 480), got {output_micro.shape}"
 
     # Test large variant (microstructure)
-    model_large_micro = DeepCNN_LSTM_Large(field_type="microstructure", input_channels=10)
+    model_large_micro = DeepCNN_LSTM_Large(field_type="microstructure", input_channels=11, output_channels=10)
     print(f"\nDeepCNN_LSTM_Large (microstructure) has {model_large_micro.count_parameters():,} trainable parameters")
 
     # Test medium variant (microstructure)
-    model_medium_micro = DeepCNN_LSTM_Medium(field_type="microstructure", input_channels=10)
+    model_medium_micro = DeepCNN_LSTM_Medium(field_type="microstructure", input_channels=11, output_channels=10)
     print(f"DeepCNN_LSTM_Medium (microstructure) has {model_medium_micro.count_parameters():,} trainable parameters")
-
-    # Test small variant (microstructure)
-    model_small_micro = DeepCNN_LSTM(field_type="microstructure", input_channels=10)
-    print(f"DeepCNN_LSTM (microstructure) has {model_small_micro.count_parameters():,} trainable parameters")
