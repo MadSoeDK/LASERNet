@@ -127,7 +127,7 @@ class AttentionUNet(BaseModel):
         self.final = nn.Sequential(
             nn.Conv2d(hidden_channels[0], hidden_channels[0] // 2, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(hidden_channels[0] // 2, input_channels, kernel_size=1),
+            nn.Conv2d(hidden_channels[0] // 2, self.output_channels, kernel_size=1),
         )
 
     def forward(self, seq: torch.Tensor) -> torch.Tensor:

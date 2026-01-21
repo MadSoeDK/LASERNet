@@ -13,6 +13,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from typing import Dict, Any
 from abc import abstractmethod
+from lasernet.loss import CombinedLoss
 
 from lasernet.laser_types import FieldType
 
@@ -143,9 +144,21 @@ class BaseModel(pl.LightningModule):
         # Use configured loss function instead of hardcoded CombinedLoss
         configured_loss = self._compute_loss(y_hat, y, temperature, mask)
 
+        # Compute solidification region loss (70% solidification T1500-1680, 30% global MSE)
+        # Temperature is at t+1 (same timestep as target)
+        solidification_loss_fn = CombinedLoss(
+            T_solidus=1500.0,
+            T_liquidus=1680.0,
+            solidification_weight=0.7,
+            global_weight=0.3,
+            base_weight=0.0,
+        )
+        solidification_combined = solidification_loss_fn(y_hat, y, temperature, mask)
+
         self.log('test_mse', mse, on_step=False, on_epoch=True)
         self.log('test_mae', mae, on_step=False, on_epoch=True)
         self.log('test_loss', configured_loss, on_step=False, on_epoch=True)
+        self.log('test_solidification_combined', solidification_combined, on_step=False, on_epoch=True)
 
         return mse
 

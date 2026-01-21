@@ -78,7 +78,7 @@ def train(
     # Configure early stopping to prevent overfitting
     early_stopping_callback = EarlyStopping(
         monitor="val_loss",
-        patience=10,
+        patience=15,
         mode="min",
     )
 
@@ -124,8 +124,8 @@ def main(
     learning_rate: float = 1e-3,
     # loss parameters
     loss: LossType = "mse",
-    t_solidus: float = 1560.0,
-    t_liquidus: float = 1620.0,
+    t_solidus: float = 1500.0,
+    t_liquidus: float = 1680.0,
     solidification_weight: float = 0.7,
     global_weight: float = 0.3,
     # misc

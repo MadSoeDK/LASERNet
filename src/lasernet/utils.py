@@ -9,6 +9,9 @@ from lasernet.laser_types import FieldType, PlaneType, SplitType, NetworkType, L
 from lasernet.models.base import BaseModel
 from lasernet.models.deep_cnn_lstm import DeepCNN_LSTM_Large
 from lasernet.models.transformer_unet import TransformerUNet_Large
+from lasernet.models.attention_unet import AttentionUNet_Deep, AttentionUNet_Light
+from lasernet.models.predrnn import PredRNN_Large, PredRNN_Light
+from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
 
 
 # Column mappings
@@ -24,7 +27,7 @@ TIMESTEP_PATTERN = re.compile(r"(\d+)(?!.*\d)")
 
 TRAIN_SPLIT_FRACTION = 0.5
 VAL_SPLIT_FRACTION = 0.25
-TOTAL_TIMESTEPS = 23
+TOTAL_TIMESTEPS = 24
 
 def compute_split_indices(
     total_size: int,
@@ -188,6 +191,20 @@ def get_model(field_type: FieldType, network: NetworkType, **kwargs):
         return DeepCNN_LSTM_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "transformer_unet_large":
         return TransformerUNet_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "attention_unet_deep":
+        return AttentionUNet_Deep(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "attention_unet_light":
+        return AttentionUNet_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "predrnn_large":
+        return PredRNN_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "predrnn_light":
+        return PredRNN_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "mlp":
+        return MLP(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "mlp_large":
+        return MLP_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "mlp_light":
+        return MLP_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     else:
         raise ValueError(f"Unsupported network type: {network}")
     
@@ -196,6 +213,20 @@ def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field
         model_class = DeepCNN_LSTM_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(DeepCNN_LSTM_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "transformer_unet_large":
         model_class = TransformerUNet_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(TransformerUNet_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "attention_unet_deep":
+        model_class = AttentionUNet_Deep.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(AttentionUNet_Deep(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "attention_unet_light":
+        model_class = AttentionUNet_Light.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(AttentionUNet_Light(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "predrnn_large":
+        model_class = PredRNN_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(PredRNN_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "predrnn_light":
+        model_class = PredRNN_Light.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(PredRNN_Light(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "mlp":
+        model_class = MLP.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(MLP(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "mlp_large":
+        model_class = MLP_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(MLP_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "mlp_light":
+        model_class = MLP_Light.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(MLP_Light(field_type=field_type), loss_type, field_type) + ".ckpt")
     else:
         raise ValueError(f"Unsupported network type: {network}")
     return model_class

@@ -1,6 +1,8 @@
 from pathlib import Path
 import logging
+import os
 from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
 import json
 
 from lasernet.data import LaserDataset
@@ -10,6 +12,8 @@ from lasernet.laser_types import FieldType, LossType, NetworkType
 from lasernet.utils import get_checkpoint_path, get_model_filename, get_model_from_checkpoint, loss_name_from_type
 from torch.utils.data import DataLoader
 import typer
+from dotenv import load_dotenv
+load_dotenv()
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,7 @@ def evaluate(
     output_path: Path = Path("./results/"),
     loss: LossType = "mse",
     seq_len: int = 3,
+    use_wandb: bool = True,
 ):
     """
     Evaluate trained model on test set using PyTorch Lightning.
@@ -63,9 +68,17 @@ def evaluate(
         num_workers=num_workers
     )
 
+    # Configure wandb logger if requested
+    wandb_logger = None
+    if use_wandb:
+        wandb_logger = WandbLogger(
+            name=f"eval_{get_model_filename(model, loss, model.field_type)}",
+            project=os.getenv("WANDB_PROJECT"),
+        )
+
     # Create PyTorch Lightning trainer for testing
     trainer = Trainer(
-        logger=False,
+        logger=wandb_logger if use_wandb else False,
         enable_checkpointing=False,
         enable_progress_bar=True,
     )
@@ -78,6 +91,7 @@ def evaluate(
     test_mse = test_results[0]['test_mse']
     test_mae = test_results[0]['test_mae']
     test_sfl = test_results[0]['test_loss']
+    test_solidification_combined = test_results[0]['test_solidification_combined']
 
     if normalizer.channel_maxs is None or normalizer.channel_mins is None:
         raise ValueError("Normalizer channel mins/maxs are not set.")
@@ -88,6 +102,7 @@ def evaluate(
         "test_mse": float(test_mse),
         "test_mae": float(test_mae),
         "test_loss": float(test_sfl),
+        "test_solidification_combined": float(test_solidification_combined),
         "channel_mins": normalizer.channel_mins.tolist(),
         "channel_maxs": normalizer.channel_maxs.tolist(),
     }
@@ -123,15 +138,16 @@ def main(
         batch_size: int = 16,
         num_workers: int = 0,
         seq_len: int = 3,
+        use_wandb: bool = True,
 ):
     """Evaluate a trained model from checkpoint."""
     model = get_model_from_checkpoint(checkpoint_dir, network, field_type, loss)
 
     if field_type != model.field_type:
         raise ValueError(f"Field type mismatch: checkpoint model has field_type={model.field_type}, but got field_type={field_type}")
-    
+
     norm_stats_file = checkpoint_dir / f"{model.field_type}_norm_stats.pt"
-   
+
     logger.info(f"Model has {model.count_parameters():,} trainable parameters")
 
     # Load normalizer (saved during training)
@@ -140,7 +156,7 @@ def main(
             f"Normalizer not found at {norm_stats_file}. "
             f"Run training first to generate normalization stats."
         )
-    
+
     normalizer = DataNormalizer.load(norm_stats_file)
     logger.info(f"Loaded normalizer from {norm_stats_file}")
 
@@ -151,6 +167,7 @@ def main(
         num_workers=num_workers,
         loss=loss,
         seq_len=seq_len,
+        use_wandb=use_wandb,
     )
 
 

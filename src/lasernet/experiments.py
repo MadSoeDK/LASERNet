@@ -2,21 +2,13 @@ import subprocess
 from pathlib import Path
 import yaml
 import logging
-import logging.handlers
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
 
 logger = logging.getLogger(__name__)
 
+# read from configs/experiments/ folder
 EXPERIMENTS = [
-    "configs/experiments/cnn_temp_baseline.yaml",
-    "configs/experiments/cnn_temp_combined.yaml",
-    "configs/experiments/cnn_micro_baseline.yaml",
-    "configs/experiments/cnn_micro_combined.yaml",
-    "configs/experiments/transformer_temp_combined.yaml",
-    "configs/experiments/transformer_micro_combined.yaml",
-    "configs/experiments/cnn_temp_short_seq.yaml",
-    "configs/experiments/cnn_micro_short_seq.yaml",
+    str(p) for p in Path("configs/experiments").glob("*.yaml")
 ]
 
 def build_cli_args(config: dict, extra_args: dict = None) -> list:
@@ -174,7 +166,7 @@ def eval_and_predict_experiment(config_path: Path):
     exp_logger.info(f"✓ Eval & Predict completed: {config_path}")
 
 def main():
-    num_workers = 2  # Parallelize training across N GPUs
+    num_workers = 1  # Parallelize training across N GPUs
     
     # Phase 1: Train all experiments in parallel
     logger.info(f"\n{'='*60}")
