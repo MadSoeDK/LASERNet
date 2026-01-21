@@ -2,7 +2,7 @@
 # Tests if attention mechanism helps capture solidification dynamics
 network: transformer_unet_large
 field_type: temperature
-loss: loss-front-combined
+loss: mse
 seq_len: 3
 max_epochs: 100
 num_workers: 4

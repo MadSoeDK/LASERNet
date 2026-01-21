@@ -1,8 +1,8 @@
 # Transformer-UNet with combined loss for microstructure
 # Tests if attention helps with grain boundary prediction
 network: transformer_unet_large
-field_type: all
-loss: loss-front-combined
+field_type: microstructure
+loss: mse
 seq_len: 3
 max_epochs: 100
 num_workers: 4

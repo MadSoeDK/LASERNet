@@ -1,7 +1,7 @@
-# CNN-LSTM with solidification-weighted loss for microstructure
+# CNN-LSTM baseline for microstructure field
 network: deep_cnn_lstm_large
 field_type: microstructure
-loss: loss-front-combined
+loss: mse
 seq_len: 3
 max_epochs: 100
 num_workers: 4
