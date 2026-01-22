@@ -12,6 +12,7 @@ from lasernet.models.transformer_unet import TransformerUNet_Large
 from lasernet.models.attention_unet import AttentionUNet_Deep, AttentionUNet_Light
 from lasernet.models.predrnn import PredRNN_Large, PredRNN_Light
 from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
+from lasernet.models.baseline_recurrent import BaselineConvLSTM_Large, BaselinePredRNN_Large
 
 
 # Column mappings
@@ -205,6 +206,10 @@ def get_model(field_type: FieldType, network: NetworkType, **kwargs):
         return MLP_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "mlp_light":
         return MLP_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "base_convlstm_large":
+        return BaselineConvLSTM_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "base_predrnn_large":
+        return BaselinePredRNN_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     else:
         raise ValueError(f"Unsupported network type: {network}")
     
@@ -227,6 +232,10 @@ def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field
         model_class = MLP_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(MLP_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "mlp_light":
         model_class = MLP_Light.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(MLP_Light(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "base_convlstm_large":
+        model_class = BaselineConvLSTM_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselineConvLSTM_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "base_predrnn_large":
+        model_class = BaselinePredRNN_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselinePredRNN_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
     else:
         raise ValueError(f"Unsupported network type: {network}")
     return model_class
@@ -248,6 +257,86 @@ def get_loss_type(loss_fn: nn.Module) -> LossType:
         return "loss-front-combined"
     else:
         raise ValueError(f"Unsupported loss function: {type(loss_fn)}")
+
+
+# Model class mapping for load_model_from_path
+MODEL_CLASSES = {
+    'deepcnn_lstm_large': DeepCNN_LSTM_Large,
+    'transformer_unet_large': TransformerUNet_Large,
+    'transformerunet_large': TransformerUNet_Large,  # Support both naming conventions
+    'attention_unet_deep': AttentionUNet_Deep,
+    'attentionunet_deep': AttentionUNet_Deep,
+    'attention_unet_light': AttentionUNet_Light,
+    'attentionunet_light': AttentionUNet_Light,
+    'predrnn_large': PredRNN_Large,
+    'predrnn_light': PredRNN_Light,
+    'mlp': MLP,
+    'mlp_large': MLP_Large,
+    'mlp_light': MLP_Light,
+    'base_convlstm_large': BaselineConvLSTM_Large,
+    'base_predrnn_large': BaselinePredRNN_Large,
+}
+
+
+def load_model_from_path(checkpoint_path: Path) -> BaseModel:
+    """
+    Load model from checkpoint, automatically detecting the model class from filename.
+
+    Checkpoint naming convention: best_{model_name}_{field_type}_{loss_type}.ckpt
+    Example: best_predrnn_large_temperature_mseloss.ckpt -> PredRNN_Large
+
+    Args:
+        checkpoint_path: Path to the checkpoint file
+
+    Returns:
+        Loaded model instance with correct class
+    """
+    # Parse filename: best_predrnn_large_temperature_mseloss.ckpt
+    stem = checkpoint_path.stem  # best_predrnn_large_temperature_mseloss
+    parts = stem.split('_')
+    # parts = ['best', 'predrnn', 'large', 'temperature', 'mseloss']
+
+    # Find field_type index (temperature or microstructure)
+    field_types = ('temperature', 'microstructure')
+    field_type_idx = None
+    for i, p in enumerate(parts):
+        if p in field_types:
+            field_type_idx = i
+            break
+
+    if field_type_idx is None:
+        raise ValueError(f"Could not find field type in checkpoint name: {checkpoint_path.name}")
+
+    # Extract model name (everything between 'best_' and field_type)
+    model_name = '_'.join(parts[1:field_type_idx])  # e.g., 'predrnn_large'
+    field_type: FieldType = parts[field_type_idx]  # type: ignore
+
+    # Get model class
+    if model_name not in MODEL_CLASSES:
+        raise ValueError(f"Unknown model name '{model_name}' from checkpoint: {checkpoint_path.name}. "
+                         f"Available models: {list(MODEL_CLASSES.keys())}")
+
+    model_class = MODEL_CLASSES[model_name]
+
+    # Determine input/output channels based on field type
+    if field_type == "temperature":
+        input_channels = len(TEMPERATURE_COLUMNS)  # 1
+        output_channels = len(TEMPERATURE_COLUMNS)  # 1
+    elif field_type == "microstructure":
+        input_channels = len(MICROSTRUCTURE_COLUMNS) + len(TEMPERATURE_COLUMNS)  # 11
+        output_channels = len(MICROSTRUCTURE_COLUMNS)  # 10
+    else:
+        raise ValueError(f"Unknown field type: {field_type}")
+
+    # Load model
+    model = model_class.load_from_checkpoint(
+        checkpoint_path,
+        field_type=field_type,
+        input_channels=input_channels,
+        output_channels=output_channels,
+    )
+
+    return model
     
 def get_checkpoint_path(checkpoint_dir: Path, model: BaseModel, loss: LossType, field_type: FieldType) -> Path:
     """Construct checkpoint path based on model and loss type."""

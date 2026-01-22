@@ -8,6 +8,8 @@ spatiotemporal field prediction in laser material processing:
 - AttentionUNet: U-Net with attention gates for focused prediction
 - TransformerUNet: U-Net with temporal transformer for sequence modeling
 - PredRNN: Spatiotemporal LSTM with zigzag memory flow
+- BaselineConvLSTM: ConvLSTM without U-Net (baseline for comparison)
+- BaselinePredRNN: PredRNN without U-Net (baseline for comparison)
 """
 
 from lasernet.models.deep_cnn_lstm import DeepCNN_LSTM, DeepCNN_LSTM_Large, DeepCNN_LSTM_Medium
@@ -15,6 +17,10 @@ from lasernet.models.attention_unet import AttentionUNet, AttentionUNet_Deep, At
 from lasernet.models.transformer_unet import TransformerUNet, TransformerUNet_Large, TransformerUNet_Light
 from lasernet.models.predrnn import PredRNN, PredRNN_Large, PredRNN_Light
 from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
+from lasernet.models.baseline_recurrent import (
+    BaselineConvLSTM, BaselineConvLSTM_Large, BaselineConvLSTM_Light,
+    BaselinePredRNN, BaselinePredRNN_Large, BaselinePredRNN_Light,
+)
 from lasernet.models.base import BaseModel
 
 __all__ = [
@@ -33,5 +39,11 @@ __all__ = [
     "MLP",
     "MLP_Large",
     "MLP_Light",
+    "BaselineConvLSTM",
+    "BaselineConvLSTM_Large",
+    "BaselineConvLSTM_Light",
+    "BaselinePredRNN",
+    "BaselinePredRNN_Large",
+    "BaselinePredRNN_Light",
     "BaseModel",
 ]

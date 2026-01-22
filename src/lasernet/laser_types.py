@@ -13,5 +13,7 @@ NetworkType = Literal[
     "mlp",
     "mlp_large",
     "mlp_light",
+    "base_convlstm_large",
+    "base_predrnn_large",
 ]
 LossType = Literal["mae", "mse", "loss-front-combined"]
