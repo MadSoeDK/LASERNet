@@ -1,4 +1,5 @@
 import subprocess
+from datetime import datetime
 from pathlib import Path
 import yaml
 import logging
@@ -110,14 +111,18 @@ def run_experiment(config_path: Path):
     
     logger.info(f"Completed experiment: {config_path}")
 
-def train_experiment(config_path: Path):
+def train_experiment(config_path: Path, wandb_group: str | None = None):
     """Run only the training step for one experiment."""
     exp_logger = setup_experiment_logger(config_path)
     exp_logger.info(f"Starting training: {config_path}")
-    
+
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-    
+
+    # Add wandb_group to config if provided
+    if wandb_group:
+        config["wandb_group"] = wandb_group
+
     train_args = build_cli_args(config)
     cmd = ["uv", "run", "src/lasernet/train.py"] + train_args
     
@@ -167,15 +172,19 @@ def eval_and_predict_experiment(config_path: Path):
 
 def main():
     num_workers = 1  # Parallelize training across N GPUs
-    
+
+    # Generate W&B group name based on date
+    wandb_group = datetime.now().strftime("exp-%Y-%m-%d")
+    logger.info(f"W&B group: {wandb_group}")
+
     # Phase 1: Train all experiments in parallel
     logger.info(f"\n{'='*60}")
     logger.info("Phase 1: Training all experiments in parallel...")
     logger.info(f"{'='*60}\n")
-    
+
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(train_experiment, Path(exp_config)): exp_config
+            executor.submit(train_experiment, Path(exp_config), wandb_group): exp_config
             for exp_config in EXPERIMENTS
         }
         

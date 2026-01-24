@@ -12,7 +12,10 @@ from lasernet.models.transformer_unet import TransformerUNet_Large
 from lasernet.models.attention_unet import AttentionUNet_Deep, AttentionUNet_Light
 from lasernet.models.predrnn import PredRNN_Large, PredRNN_Medium, PredRNN_Light
 from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
-from lasernet.models.baseline_recurrent import BaselineConvLSTM, BaselineConvLSTM_Large, BaselinePredRNN, BaselinePredRNN_Large
+from lasernet.models.baseline_recurrent import (
+    BaselineConvLSTM, BaselineConvLSTM_Large, BaselineConvLSTM_Light,
+    BaselinePredRNN, BaselinePredRNN_Large, BaselinePredRNN_Light
+)
 from lasernet.models.cnn_mlp import DeepCNN_MLP_Medium, DeepCNN_MLP_Large
 
 
@@ -215,10 +218,14 @@ def get_model(field_type: FieldType, network: NetworkType, **kwargs):
         return BaselineConvLSTM(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "base_convlstm_large":
         return BaselineConvLSTM_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "base_convlstm_light":
+        return BaselineConvLSTM_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "base_predrnn":
         return BaselinePredRNN(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "base_predrnn_large":
         return BaselinePredRNN_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+    elif network == "base_predrnn_light":
+        return BaselinePredRNN_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "cnn_mlp_medium":
         return DeepCNN_MLP_Medium(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "cnn_mlp_large":
@@ -253,10 +260,14 @@ def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field
         model_class = BaselineConvLSTM.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselineConvLSTM(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "base_convlstm_large":
         model_class = BaselineConvLSTM_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselineConvLSTM_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "base_convlstm_light":
+        model_class = BaselineConvLSTM_Light.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselineConvLSTM_Light(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "base_predrnn":
         model_class = BaselinePredRNN.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselinePredRNN(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "base_predrnn_large":
         model_class = BaselinePredRNN_Large.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselinePredRNN_Large(field_type=field_type), loss_type, field_type) + ".ckpt")
+    elif network == "base_predrnn_light":
+        model_class = BaselinePredRNN_Light.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(BaselinePredRNN_Light(field_type=field_type), loss_type, field_type) + ".ckpt")
     elif network == "cnn_mlp_medium":
         model_class = DeepCNN_MLP_Medium.load_from_checkpoint(f"{checkpoint_path}/" + get_model_filename(DeepCNN_MLP_Medium(field_type=field_type), loss_type, field_type) + ".ckpt", strict=False)
     elif network == "cnn_mlp_large":
@@ -300,9 +311,15 @@ MODEL_CLASSES = {
     'mlp_large': MLP_Large,
     'mlp_light': MLP_Light,
     'baselineconvlstm': BaselineConvLSTM,
+    'base_convlstm': BaselineConvLSTM,
     'base_convlstm_large': BaselineConvLSTM_Large,
+    'baselineconvlstm_light': BaselineConvLSTM_Light,
+    'base_convlstm_light': BaselineConvLSTM_Light,
     'baselinepredrnn': BaselinePredRNN,
+    'base_predrnn': BaselinePredRNN,
     'base_predrnn_large': BaselinePredRNN_Large,
+    'baselinepredrnn_light': BaselinePredRNN_Light,
+    'base_predrnn_light': BaselinePredRNN_Light,
     'deepcnn_mlp_medium': DeepCNN_MLP_Medium,
     'deepcnn_mlp_large': DeepCNN_MLP_Large,
 }

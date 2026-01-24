@@ -1,5 +1,5 @@
-# MLP baseline for microstructure field
-network: cnn_mlp_medium
+# CNN-PredRNN with solidification-weighted loss for microstructure
+network: predrnn_medium
 field_type: microstructure
 loss: mse
 seq_len: 3

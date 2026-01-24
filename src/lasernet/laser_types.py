@@ -22,9 +22,11 @@ NetworkType = Literal[
     "mlp_light",
     "base_convlstm",
     "base_convlstm_large",
+    "base_convlstm_light",
     "base_predrnn",
     "base_predrnn_medium",
     "base_predrnn_large",
+    "base_predrnn_light",
     "cnn_mlp_medium",
     "cnn_mlp_large",
 ]

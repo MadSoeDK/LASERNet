@@ -242,7 +242,7 @@ class BaselinePredRNN(BaseModel):
         output_channels: int | None = None,
         feature_channels: int = 64,
         predrnn_hidden: int = 64,
-        predrnn_layers: int = 4,
+        predrnn_layers: int = 3,
         dropout: float = 0.1,
         learning_rate: float = 1e-4,
         loss_fn: nn.Module = nn.MSELoss(),
