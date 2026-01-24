@@ -13,9 +13,8 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from typing import Dict, Any
 from abc import abstractmethod
-from lasernet.loss import CombinedLoss
 
-from lasernet.laser_types import FieldType
+from lasernet.laser_types import FieldType, T_SOLIDUS, T_LIQUIDUS
 
 
 class BaseModel(pl.LightningModule):
@@ -139,26 +138,38 @@ class BaseModel(pl.LightningModule):
         x, y, temperature, mask = batch
         y_hat = self(x)
 
+        # Global metrics (entire valid region)
         mse = nn.functional.mse_loss(y_hat, y)
         mae = nn.functional.l1_loss(y_hat, y)
-        # Use configured loss function instead of hardcoded CombinedLoss
+        # Use configured loss function
         configured_loss = self._compute_loss(y_hat, y, temperature, mask)
 
-        # Compute solidification region loss (70% solidification T1500-1680, 30% global MSE)
+        # Solidification region metrics
         # Temperature is at t+1 (same timestep as target)
-        solidification_loss_fn = CombinedLoss(
-            T_solidus=1500.0,
-            T_liquidus=1680.0,
-            solidification_weight=0.7,
-            global_weight=0.3,
-            base_weight=0.0,
-        )
-        solidification_combined = solidification_loss_fn(y_hat, y, temperature, mask)
+        temp = temperature.squeeze(1) if temperature.dim() == 4 else temperature  # [B, H, W]
+        solidification_mask = (temp >= T_SOLIDUS) & (temp <= T_LIQUIDUS) & mask.bool()
+
+        # Compute MSE and MAE only in solidification region
+        if solidification_mask.any():
+            solidification_mask_expanded = solidification_mask.unsqueeze(1).expand_as(y)
+            solidification_mse = nn.functional.mse_loss(
+                y_hat[solidification_mask_expanded],
+                y[solidification_mask_expanded]
+            )
+            solidification_mae = nn.functional.l1_loss(
+                y_hat[solidification_mask_expanded],
+                y[solidification_mask_expanded]
+            )
+        else:
+            # Fallback if no pixels in solidification range
+            solidification_mse = mse
+            solidification_mae = mae
 
         self.log('test_mse', mse, on_step=False, on_epoch=True)
         self.log('test_mae', mae, on_step=False, on_epoch=True)
         self.log('test_loss', configured_loss, on_step=False, on_epoch=True)
-        self.log('test_solidification_combined', solidification_combined, on_step=False, on_epoch=True)
+        self.log('test_solidification_mse', solidification_mse, on_step=False, on_epoch=True)
+        self.log('test_solidification_mae', solidification_mae, on_step=False, on_epoch=True)
 
         return mse
 

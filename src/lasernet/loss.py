@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from lasernet.laser_types import T_SOLIDUS, T_LIQUIDUS
+
 
 class GradientWeightedMSELoss(nn.Module):
     """
@@ -166,11 +168,13 @@ class SolidificationWeightedMSELoss(nn.Module):
 
     def __init__(
         self,
-        T_solidus: float = 1400.0,
-        T_liquidus: float = 1500.0,
+        T_solidus: float = T_SOLIDUS,
+        T_liquidus: float = T_LIQUIDUS,
         weight_type: str = "gaussian",
         weight_scale: float = 0.1,
         base_weight: float = 0.1,
+        temp_min: float = 0.0,
+        temp_max: float = 4644.0,
     ):
         super().__init__()
 
@@ -185,9 +189,9 @@ class SolidificationWeightedMSELoss(nn.Module):
         self.weight_scale = weight_scale
         self.base_weight = base_weight
 
-        # Temperature normalization range (from model's normalization)
-        self.temp_min = 300.0
-        self.temp_max = 2000.0
+        # Temperature normalization range (should match DataNormalizer stats)
+        self.temp_min = temp_min
+        self.temp_max = temp_max
 
     def _compute_weights(
         self,
@@ -211,22 +215,26 @@ class SolidificationWeightedMSELoss(nn.Module):
         else:
             temp = temperature
 
-        # Normalize temperature to solidification range [0, 1]
-        # 0 = solidus (fully solid), 1 = liquidus (fully liquid)
-        temp_normalized = (temp - self.T_solidus) / (self.T_liquidus - self.T_solidus)
-
         # Create binary mask for solidification range
-        in_solidification_range = (temp_normalized >= 0.0) & (temp_normalized <= 1.0)
+        in_solidification_range = (temp >= self.T_solidus) & (temp <= self.T_liquidus)
 
-        # Uniform weight across full solidification range
+        # Weight = 1.0 everywhere, but only compute loss in solidification region
+        # base_weight controls whether to include regions outside solidification
         weight = torch.where(
             in_solidification_range,
-            torch.ones_like(temp_normalized),  # weight = 1.0 in solidification range
-            torch.ones_like(temp_normalized) * self.base_weight  # base_weight outside
+            torch.ones_like(temp),  # weight = 1.0 in solidification range
+            torch.ones_like(temp) * self.base_weight  # base_weight outside (0.0 = exclude)
         )
 
-        # Apply valid region mask
-        weight = weight * mask
+        # Apply valid region mask: regions outside mask get base_weight reduction
+        # but are NOT completely zeroed out. This prevents model from learning to 
+        # output zeros in cold regions while still prioritizing the heated area.
+        mask_float = mask.float()
+        weight = torch.where(
+            mask_float > 0,
+            weight,  # Full weight in valid region
+            weight * self.base_weight  # Reduced weight outside valid region
+        )
 
         return weight
 
@@ -305,22 +313,24 @@ class CombinedLoss(nn.Module):
     global accuracy.
 
     Example:
-        # 70% weight on solidification front, 30% on global MSE
+        # 50% weight on solidification front, 50% on global MSE
         loss_fn = CombinedLoss(
-            solidification_weight=0.7,
-            global_weight=0.3,
+            solidification_weight=0.5,
+            global_weight=0.5,
         )
     """
 
     def __init__(
         self,
-        solidification_weight: float = 0.7,
-        global_weight: float = 0.3,
-        T_solidus: float = 1400.0,
-        T_liquidus: float = 1500.0,
+        solidification_weight: float = 0.5,
+        global_weight: float = 0.5,
+        T_solidus: float = T_SOLIDUS,
+        T_liquidus: float = T_LIQUIDUS,
         weight_type: str = "gaussian",
         weight_scale: float = 0.1,
         base_weight: float = 0.1,
+        temp_min: float = 0.0,
+        temp_max: float = 4644.0,
         return_components: bool = False,
     ):
         super().__init__()
@@ -335,6 +345,8 @@ class CombinedLoss(nn.Module):
             weight_type=weight_type,
             weight_scale=weight_scale,
             base_weight=base_weight,
+            temp_min=temp_min,
+            temp_max=temp_max,
         )
 
         self.global_loss = nn.MSELoss()

@@ -1,4 +1,4 @@
-# MLP baseline for microstructure field
+# CNN encoder-decoder with MLP temporal modeling for microstructure
 network: cnn_mlp_medium
 field_type: microstructure
 loss: mse

@@ -28,7 +28,7 @@ def evaluate(
     output_path: Path = Path("./results/"),
     loss: LossType = "mse",
     seq_len: int = 3,
-    use_wandb: bool = True,
+    use_wandb: bool = False,
 ):
     """
     Evaluate trained model on test set using PyTorch Lightning.
@@ -90,8 +90,9 @@ def evaluate(
     # Extract results from PyTorch Lightning
     test_mse = test_results[0]['test_mse']
     test_mae = test_results[0]['test_mae']
-    test_sfl = test_results[0]['test_loss']
-    test_solidification_combined = test_results[0]['test_solidification_combined']
+    test_loss = test_results[0]['test_loss']
+    test_solidification_mse = test_results[0]['test_solidification_mse']
+    test_solidification_mae = test_results[0]['test_solidification_mae']
 
     if normalizer.channel_maxs is None or normalizer.channel_mins is None:
         raise ValueError("Normalizer channel mins/maxs are not set.")
@@ -101,8 +102,9 @@ def evaluate(
         "num_samples": len(test_dataset),
         "test_mse": float(test_mse),
         "test_mae": float(test_mae),
-        "test_loss": float(test_sfl),
-        "test_solidification_combined": float(test_solidification_combined),
+        "test_loss": float(test_loss),
+        "test_solidification_mse": float(test_solidification_mse),
+        "test_solidification_mae": float(test_solidification_mae),
         "channel_mins": normalizer.channel_mins.tolist(),
         "channel_maxs": normalizer.channel_maxs.tolist(),
     }
@@ -138,7 +140,7 @@ def main(
         batch_size: int = 16,
         num_workers: int = 0,
         seq_len: int = 3,
-        use_wandb: bool = True,
+        use_wandb: bool = False,
 ):
     """Evaluate a trained model from checkpoint."""
     model = get_model_from_checkpoint(checkpoint_dir, network, field_type, loss)

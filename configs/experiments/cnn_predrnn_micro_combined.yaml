@@ -1,5 +1,5 @@
-# CNN-LSTM with solidification-weighted loss for microstructure
-network: deep_cnn_lstm_medium
+# CNN-PredRNN with solidification-weighted loss for microstructure
+network: predrnn_medium
 field_type: microstructure
 loss: loss-front-combined
 seq_len: 3

@@ -412,7 +412,7 @@ def plot_microstructure_prediction(
         ax = axes[0, i]
         frame = input_seq[i, 0:3].cpu().float().numpy()  # [3, H, W]
         frame_rgb = np.clip(np.transpose(frame, (2, 1, 0)), 0, 1).astype(np.float32)  # [W, H, 3]
-        ax.imshow(frame_rgb, aspect='equal', interpolation='nearest', origin='lower')
+        ax.imshow(frame_rgb, aspect='equal', interpolation='nearest', origin='upper')
         ax.set_title(f'Input Frame {i+1}')
         ax.set_xlabel("X coordinate")
         ax.set_ylabel("Z coordinate")
@@ -421,7 +421,7 @@ def plot_microstructure_prediction(
     # Plot ground truth (bottom left)
     ax = axes[1, 0]
     target_rgb = np.clip(np.transpose(target[0:3].cpu().float().numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
-    ax.imshow(target_rgb, aspect='equal', interpolation='nearest', origin='lower')
+    ax.imshow(target_rgb, aspect='equal', interpolation='nearest', origin='upper')
     ax.set_title('Ground Truth')
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
@@ -430,7 +430,7 @@ def plot_microstructure_prediction(
     # Plot prediction (bottom middle)
     ax = axes[1, 1]
     pred_rgb = np.clip(np.transpose(prediction[0:3].cpu().float().numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
-    ax.imshow(pred_rgb, aspect='equal', interpolation='nearest', origin='lower')
+    ax.imshow(pred_rgb, aspect='equal', interpolation='nearest', origin='upper')
     ax.set_title('Prediction')
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
@@ -442,7 +442,7 @@ def plot_microstructure_prediction(
     pred_np = prediction[0:3].cpu().float().numpy()  # [3, H, W]
     error = np.mean((target_np - pred_np) ** 2, axis=0).astype(np.float32)  # [H, W]
     im = ax.imshow(error.T, cmap='RdYlBu_r', aspect='equal',
-                  interpolation='nearest', origin='lower')
+                  interpolation='nearest', origin='upper')
     ax.set_title(f'Mean Squared Error (MSE: {error.mean():.4f})')
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")

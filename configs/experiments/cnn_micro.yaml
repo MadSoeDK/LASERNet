@@ -1,5 +1,5 @@
 # CNN-LSTM baseline for microstructure field
-network: deep_cnn_lstm_large
+network: deep_cnn_lstm_medium
 field_type: microstructure
 loss: mse
 seq_len: 3

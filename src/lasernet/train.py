@@ -12,7 +12,7 @@ import typer
 
 from lasernet.data import LaserDataset
 from lasernet.models.base import BaseModel
-from lasernet.laser_types import FieldType, LossType, NetworkType
+from lasernet.laser_types import FieldType, LossType, NetworkType, T_SOLIDUS, T_LIQUIDUS
 from lasernet.utils import get_checkpoint_path, get_loss_fn, get_loss_type, get_model
 # load env variables
 from dotenv import load_dotenv
@@ -124,10 +124,10 @@ def main(
     learning_rate: float = 1e-3,
     # loss parameters
     loss: LossType = "mse",
-    t_solidus: float = 1500.0,
-    t_liquidus: float = 1680.0,
-    solidification_weight: float = 0.7,
-    global_weight: float = 0.3,
+    t_solidus: float = T_SOLIDUS,
+    t_liquidus: float = T_LIQUIDUS,
+    solidification_weight: float = 0.5,
+    global_weight: float = 0.5,
     # misc
     use_wandb: bool = True,
 ):

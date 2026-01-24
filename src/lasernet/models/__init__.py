@@ -10,9 +10,11 @@ spatiotemporal field prediction in laser material processing:
 - PredRNN: Spatiotemporal LSTM with zigzag memory flow
 - BaselineConvLSTM: ConvLSTM without U-Net (baseline for comparison)
 - BaselinePredRNN: PredRNN without U-Net (baseline for comparison)
+- DeepCNN_MLP: CNN encoder-decoder with MLP temporal modeling
 """
 
 from lasernet.models.deep_cnn_lstm import DeepCNN_LSTM, DeepCNN_LSTM_Large, DeepCNN_LSTM_Medium
+from lasernet.models.cnn_mlp import DeepCNN_MLP, DeepCNN_MLP_Medium, DeepCNN_MLP_Large
 from lasernet.models.attention_unet import AttentionUNet, AttentionUNet_Deep, AttentionUNet_Light
 from lasernet.models.transformer_unet import TransformerUNet, TransformerUNet_Large, TransformerUNet_Light
 from lasernet.models.predrnn import PredRNN, PredRNN_Large, PredRNN_Light
@@ -27,6 +29,9 @@ __all__ = [
     "DeepCNN_LSTM",
     "DeepCNN_LSTM_Large",
     "DeepCNN_LSTM_Medium",
+    "DeepCNN_MLP",
+    "DeepCNN_MLP_Medium",
+    "DeepCNN_MLP_Large",
     "AttentionUNet",
     "AttentionUNet_Deep",
     "AttentionUNet_Light",

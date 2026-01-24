@@ -467,6 +467,41 @@ class PredRNN_Large(PredRNN):
         )
 
 
+class PredRNN_Medium(PredRNN):
+    """
+    Medium variant matching DeepCNN_LSTM_Medium size.
+    ~20M parameters.
+    """
+
+    def __init__(
+        self,
+        field_type: FieldType,
+        input_channels: int = 1,
+        output_channels: int | None = None,
+        learning_rate: float = 1e-4,
+        loss_fn: nn.Module = nn.MSELoss(),
+        **kwargs,
+    ):
+        # Remove params that we're overriding
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('predrnn_hidden', None)
+        kwargs.pop('predrnn_layers', None)
+        kwargs.pop('dropout', None)
+
+        super().__init__(
+            field_type=field_type,
+            input_channels=input_channels,
+            output_channels=output_channels,
+            hidden_channels=[32, 64, 128, 256, 256],
+            predrnn_hidden=128,
+            predrnn_layers=2,
+            dropout=0.1,
+            learning_rate=learning_rate,
+            loss_fn=loss_fn,
+            **kwargs,
+        )
+
+
 class PredRNN_Light(PredRNN):
     """
     Lighter variant for faster training.
