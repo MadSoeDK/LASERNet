@@ -494,7 +494,7 @@ class PredRNN_Medium(PredRNN):
             output_channels=output_channels,
             hidden_channels=[32, 64, 128, 256, 256],
             predrnn_hidden=128,
-            predrnn_layers=2,
+            predrnn_layers=3,
             dropout=0.1,
             learning_rate=learning_rate,
             loss_fn=loss_fn,

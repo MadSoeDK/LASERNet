@@ -1,5 +1,5 @@
 # Baseline MLP (no encoder-decoder) for microstructure
-network: mlp
+network: mlp_large
 field_type: microstructure
 loss: mse
 seq_len: 3

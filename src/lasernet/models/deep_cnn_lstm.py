@@ -284,7 +284,7 @@ class DeepCNN_LSTM_Medium(DeepCNN_LSTM):
             output_channels=output_channels,
             hidden_channels=[32, 64, 128, 256, 256],
             lstm_hidden=128,
-            lstm_layers=2,
+            lstm_layers=3,
             dropout=0.1,
             learning_rate=learning_rate,
             loss_fn=loss_fn,
