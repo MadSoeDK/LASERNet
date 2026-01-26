@@ -69,7 +69,7 @@ def train(
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(
         dirpath="models",
-        filename=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
+        filename=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len).stem,
         monitor="val_loss",
         mode="min",
         save_top_k=1,
@@ -86,14 +86,14 @@ def train(
     # Configure TensorBoard logger
     tb_logger = TensorBoardLogger(
         save_dir="lightning_logs",
-        name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
+        name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len).stem,
     )
 
     # initialise the wandb logger
     wandb_logger = None
     if use_wandb:
         wandb_logger = WandbLogger(
-            name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
+            name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len).stem,
             project=os.getenv("WANDB_PROJECT"),
             group=wandb_group,
         )
@@ -146,7 +146,7 @@ def main(
     model = get_model(field_type=field_type, network=network, **model_params)
 
     # check if model is already trained
-    checkpoint_path = get_checkpoint_path(Path("models/"), model, loss, model.field_type)
+    checkpoint_path = get_checkpoint_path(Path("models/"), model, loss, model.field_type, seq_len)
     if checkpoint_path.exists():
         logger.info(f"Model checkpoint already exists at {checkpoint_path}. Skipping training.")
         return

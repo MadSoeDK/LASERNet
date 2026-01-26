@@ -13,11 +13,17 @@ spatiotemporal field prediction in laser material processing:
 - DeepCNN_MLP: CNN encoder-decoder with MLP temporal modeling
 """
 
-from lasernet.models.deep_cnn_lstm import DeepCNN_LSTM, DeepCNN_LSTM_Large, DeepCNN_LSTM_Medium
+from lasernet.models.deep_cnn_lstm import (
+    DeepCNN_LSTM, DeepCNN_LSTM_Large, DeepCNN_LSTM_Medium,
+    DeepCNN_LSTM_Shallow4L, DeepCNN_LSTM_Shallow3L
+)
 from lasernet.models.cnn_mlp import DeepCNN_MLP, DeepCNN_MLP_Medium, DeepCNN_MLP_Large
 from lasernet.models.attention_unet import AttentionUNet, AttentionUNet_Deep, AttentionUNet_Light
 from lasernet.models.transformer_unet import TransformerUNet, TransformerUNet_Large, TransformerUNet_Light
-from lasernet.models.predrnn import PredRNN, PredRNN_Large, PredRNN_Light
+from lasernet.models.predrnn import (
+    PredRNN, PredRNN_Large, PredRNN_Light,
+    PredRNN_Shallow4L, PredRNN_Shallow3L
+)
 from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
 from lasernet.models.baseline_recurrent import (
     BaselineConvLSTM, BaselineConvLSTM_Large, BaselineConvLSTM_Light,
@@ -29,6 +35,8 @@ __all__ = [
     "DeepCNN_LSTM",
     "DeepCNN_LSTM_Large",
     "DeepCNN_LSTM_Medium",
+    "DeepCNN_LSTM_Shallow4L",
+    "DeepCNN_LSTM_Shallow3L",
     "DeepCNN_MLP",
     "DeepCNN_MLP_Medium",
     "DeepCNN_MLP_Large",
@@ -41,6 +49,8 @@ __all__ = [
     "PredRNN",
     "PredRNN_Large",
     "PredRNN_Light",
+    "PredRNN_Shallow4L",
+    "PredRNN_Shallow3L",
     "MLP",
     "MLP_Large",
     "MLP_Light",

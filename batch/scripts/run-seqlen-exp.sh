@@ -1,4 +1,4 @@
-### Example of batch script
+### Sequence length experiments batch script
 
 #!/bin/sh
 ### General options
@@ -16,20 +16,20 @@
 #BSUB -R "rusage[mem=20GB]"
 ### email when job begins (optional)
 #BSUB -B
-### email when job ends             
+### email when job ends
 #BSUB -N
 #BSUB -u s215805@dtu.dk
 
 ### -- set the job Name --
-#BSUB -J lasernet
+#BSUB -J lasernet-seqlen
 ### -- Specify the output and error file. %J is the job-id --
-#BSUB -o batch/logs/lasernet%J.out
-#BSUB -e batch/logs/lasernet%J.err
+#BSUB -o batch/logs/lasernet-seqlen%J.out
+#BSUB -e batch/logs/lasernet-seqlen%J.err
 
 # -- end of LSF options --
 
 uv sync
 
-export WANDB_PROJECT="lasernet" 
+export WANDB_PROJECT="lasernet"
 
-make run-exp
+uv run src/lasernet/experiments_seqlen.py

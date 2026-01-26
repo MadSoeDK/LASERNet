@@ -120,8 +120,8 @@ def evaluate(
     else:
         all_results = {}
     
-    # Add this model's results under its name
-    model_key = get_model_filename(model, loss, model.field_type)
+    # Add this model's results under its name (include seq_len if non-default)
+    model_key = get_model_filename(model, loss, model.field_type, seq_len)
     all_results[model_key] = results
     
     # Save back to file
@@ -143,7 +143,7 @@ def main(
         use_wandb: bool = False,
 ):
     """Evaluate a trained model from checkpoint."""
-    model = get_model_from_checkpoint(checkpoint_dir, network, field_type, loss)
+    model = get_model_from_checkpoint(checkpoint_dir, network, field_type, loss, seq_len)
 
     if field_type != model.field_type:
         raise ValueError(f"Field type mismatch: checkpoint model has field_type={model.field_type}, but got field_type={field_type}")

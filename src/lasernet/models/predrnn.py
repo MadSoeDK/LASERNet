@@ -537,6 +537,80 @@ class PredRNN_Light(PredRNN):
         )
 
 
+class PredRNN_Shallow4L(PredRNN):
+    """
+    Shallow variant with 4 encoder levels (16x spatial reduction).
+
+    Preserves more grain-scale detail than the standard 5-level architecture.
+    Input 465x47 -> Bottleneck ~29x2 (vs ~14x1 for 5-level).
+    """
+
+    def __init__(
+        self,
+        field_type: FieldType,
+        input_channels: int = 1,
+        output_channels: int | None = None,
+        learning_rate: float = 1e-4,
+        loss_fn: nn.Module = nn.MSELoss(),
+        **kwargs,
+    ):
+        # Remove params that we're overriding
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('predrnn_hidden', None)
+        kwargs.pop('predrnn_layers', None)
+        kwargs.pop('dropout', None)
+
+        super().__init__(
+            field_type=field_type,
+            input_channels=input_channels,
+            output_channels=output_channels,
+            hidden_channels=[64, 128, 256, 512],  # 4 levels
+            predrnn_hidden=256,
+            predrnn_layers=3,
+            dropout=0.1,
+            learning_rate=learning_rate,
+            loss_fn=loss_fn,
+            **kwargs,
+        )
+
+
+class PredRNN_Shallow3L(PredRNN):
+    """
+    Shallow variant with 3 encoder levels (8x spatial reduction).
+
+    Preserves maximum grain-scale detail with minimal compression.
+    Input 465x47 -> Bottleneck ~58x5 (vs ~14x1 for 5-level).
+    """
+
+    def __init__(
+        self,
+        field_type: FieldType,
+        input_channels: int = 1,
+        output_channels: int | None = None,
+        learning_rate: float = 1e-4,
+        loss_fn: nn.Module = nn.MSELoss(),
+        **kwargs,
+    ):
+        # Remove params that we're overriding
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('predrnn_hidden', None)
+        kwargs.pop('predrnn_layers', None)
+        kwargs.pop('dropout', None)
+
+        super().__init__(
+            field_type=field_type,
+            input_channels=input_channels,
+            output_channels=output_channels,
+            hidden_channels=[64, 128, 256],  # 3 levels
+            predrnn_hidden=256,
+            predrnn_layers=3,
+            dropout=0.1,
+            learning_rate=learning_rate,
+            loss_fn=loss_fn,
+            **kwargs,
+        )
+
+
 if __name__ == "__main__":
     # Test ST-LSTM cell
     cell = SpatiotemporalLSTMCell(input_dim=64, hidden_dim=128)

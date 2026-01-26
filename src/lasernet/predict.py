@@ -107,7 +107,9 @@ def predict_slice(
     model = model.to(device)
     model.eval()
 
-    sample_idx = compute_index(timestep, "test", "xz", slice_index)
+    sample_idx = compute_index(timestep, "test", "xz", slice_index,
+                               sequence_length=test_dataset.sequence_length,
+                               target_offset=test_dataset.target_offset)
 
     # Get input sequence and target
     input_seq, target, _, _ = test_dataset[sample_idx]
@@ -149,6 +151,7 @@ def main(
             network=network,
             field_type=field_type,
             loss_type=loss,
+            seq_len=seq_len,
         )
 
         if field_type != model.field_type:
@@ -193,7 +196,7 @@ def main(
 
         # Save visualization if requested
         if save_output:
-            mkdir_path = Path(f"results/{get_checkpoint_path(checkpoint_dir, model, loss, field_type).stem}/")
+            mkdir_path = Path(f"results/{get_checkpoint_path(checkpoint_dir, model, loss, field_type, seq_len).stem}/")
             mkdir_path.mkdir(parents=True, exist_ok=True)
             for idx, (input_seq, target, prediction) in enumerate(zip(results['input_seqs'], results['targets'], results['predictions'])):
                 # save every 15 slices
