@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 
 # Shallow encoder experiments
 EXPERIMENTS = [
-    #"configs/experiments/shallow_encoder/cnn_lstm_shallow4l_micro.yaml",
     "configs/experiments/shallow_encoder/cnn_lstm_shallow3l_micro.yaml",
     "configs/experiments/shallow_encoder/cnn_lstm_shallow3l_micro_combined.yaml",
-    #"configs/experiments/shallow_encoder/predrnn_shallow4l_micro.yaml",
     "configs/experiments/shallow_encoder/predrnn_shallow3l_micro.yaml",
     "configs/experiments/shallow_encoder/predrnn_shallow3l_micro_combined.yaml",
+    "configs/experiments/shallow_encoder/cnn_lstm_shallow2l_micro.yaml",
+    "configs/experiments/shallow_encoder/predrnn_shallow2l_micro.yaml",
 ]
 
 

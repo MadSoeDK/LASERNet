@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 EXPERIMENTS = [
     "configs/experiments/seq_len/base_convlstm_micro_seq2.yaml",
     "configs/experiments/seq_len/base_convlstm_micro_seq4.yaml",
-    #"configs/experiments/seq_len/base_predrnn_micro_seq2.yaml",
-    #"configs/experiments/seq_len/base_predrnn_micro_seq4.yaml",
 ]
 
 

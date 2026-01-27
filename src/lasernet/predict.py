@@ -107,9 +107,7 @@ def predict_slice(
     model = model.to(device)
     model.eval()
 
-    sample_idx = compute_index(timestep, "test", "xz", slice_index,
-                               sequence_length=test_dataset.sequence_length,
-                               target_offset=test_dataset.target_offset)
+    sample_idx = compute_index(timestep, "test", "xz", slice_index)
 
     # Get input sequence and target
     input_seq, target, _, _ = test_dataset[sample_idx]

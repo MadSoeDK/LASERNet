@@ -611,6 +611,43 @@ class PredRNN_Shallow3L(PredRNN):
         )
 
 
+class PredRNN_Shallow2L(PredRNN):
+    """
+    Extra-shallow variant with 2 encoder levels (4x spatial reduction).
+
+    Maximizes spatial fidelity by limiting compression depth.
+    Input 465x47 -> Bottleneck ~117x11 (vs ~14x1 for 5-level).
+    """
+
+    def __init__(
+        self,
+        field_type: FieldType,
+        input_channels: int = 1,
+        output_channels: int | None = None,
+        learning_rate: float = 1e-4,
+        loss_fn: nn.Module = nn.MSELoss(),
+        **kwargs,
+    ):
+        # Remove params that we're overriding
+        kwargs.pop('hidden_channels', None)
+        kwargs.pop('predrnn_hidden', None)
+        kwargs.pop('predrnn_layers', None)
+        kwargs.pop('dropout', None)
+
+        super().__init__(
+            field_type=field_type,
+            input_channels=input_channels,
+            output_channels=output_channels,
+            hidden_channels=[64, 128],  # 2 levels
+            predrnn_hidden=128,
+            predrnn_layers=2,
+            dropout=0.1,
+            learning_rate=learning_rate,
+            loss_fn=loss_fn,
+            **kwargs,
+        )
+
+
 if __name__ == "__main__":
     # Test ST-LSTM cell
     cell = SpatiotemporalLSTMCell(input_dim=64, hidden_dim=128)
