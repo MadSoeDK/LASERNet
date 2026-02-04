@@ -1,21 +1,60 @@
+[build-system]
+requires = ["uv_build>=0.9.22,<0.10.0"]
+build-backend = "uv_build"
+
 [project]
 name = "lasernet"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.12, <3.13"
-dependencies = [
-    "python-dotenv>=1.0.0",
-    "ipykernel>=7.1.0",
-    "matplotlib>=3.10.7",
-    "nbconvert>=7.16.6",
-    "nbstripout>=0.8.2",
-    "numpy>=2.3.4",
-    "pandas>=2.3.3",
-    "scipy>=1.15.1",
-    "tabulate>=0.9.0",
-    "tensorboard>=2.20.0",
-    "torch>=2.9.0",
-    "torchvision>=0.24.0",
-    "tqdm>=4.66.0",
+version = "0.0.1"
+description = "Spatiotemporal deep learning for predicting microstructure evolution in laser-based additive manufacturing"
+authors = [
+  { name = "Mads Sørensen", email = "s215805@dtu.dk" },
 ]
+license = { file = "LICENSE" }
+keywords = ["machine learning", "MLOps"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "numpy>=2.4.1",
+    "pandas>=2.3.3",
+    "pytorch-lightning>=2.6.0",
+    "tensorboard>=2.20.0",
+    "torch==2.6.0",
+    "tqdm>=4.67.1",
+    "typer==0.19.2",
+    "wandb>=0.24.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.4",
+    "ruff==0.1.3",
+    "matplotlib>=3.10.8",
+    "nbstripout>=0.9.0",
+    "nbconvert>=7.16.6",
+    "ipykernel>=7.1.0",
+]
+
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu124" },
+]
+torchvision = [
+    { index = "pytorch-cu124" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.coverage.run]
+omit = ["tests/*"]

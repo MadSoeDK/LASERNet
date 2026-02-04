@@ -1,55 +1,49 @@
-# LASERNet Makefile
-# Commands for training, testing, and running on HPC interactive nodes
-
-.PHONY: help init clean MICROnet_notebook submit_MICROnet_notebook
-
-# Default target: run full pipeline
-all: init TempNet MicroNet
-
-.DEFAULT_GOAL := all
-
 init:
-	@command -v uv >/dev/null 2>&1 || (echo "uv not found, installing..." && curl -LsSf https://astral.sh/uv/install.sh | sh)
-	uv sync
-	uv run python -m ipykernel install --user --name=.venv
+	export LASERNET_LOG_LEVEL=INFO
 
-# Default target: show help
-help:
-	@echo "LASERNet - Available Make Commands"
-	@echo "==================================="
-	@echo ""
-	@echo "Default:"
-	@echo "  make                - Run full pipeline (init + TempNet + MicroNet)"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make init           	- Install uv if not found and sync dependencies"
-	@echo ""
-	@echo "Batch Jobs:"
-	@echo "  make TempNet           - Execute notebooks/TempNet.ipynb"
-	@echo "  make MicroNet          - Execute notebooks/MicroNet.ipynb"
-	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean          - Remove logs, runs, and cache files"
+preprocess:
+	uv run src/lasernet/preprocess.py
 
-# ==================== BATCH JOB SUBMISSION ====================
+train:
+	uv run src/lasernet/train.py --network deep_cnn_lstm_large --field-type microstructure --max-epochs 25
 
-TempNet:
-	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/TempNet.ipynb
+evaluate:
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type microstructure
 
-MicroNet:
-	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/MicroNet.ipynb
+predict:
+	uv run src/lasernet/predict.py --timestep 18 --network deep_cnn_lstm_large --field-type microstructure
 
-# ==================== CLEANUP ====================
+tensorboard:
+	uv run tensorboard --logdir lightning_logs/ --host=0.0.0.0 --port=6006
 
-clean:
-	@echo "Cleaning up logs, runs, and cache files..."
-	rm -rf logs/*.out logs/*.err
-	rm -rf __pycache__/
-	rm -rf lasernet/__pycache__/
-	rm -rf lasernet/**/__pycache__/
-	rm -rf MicroNet_artifacts/
-	rm -rf TempNet_artifacts/
+test:
+	uv run tests/test_utils.py
 
-	find . -name "*.pyc" -delete
-	find . -name ".DS_Store" -delete
-	@echo "Cleanup complete!"
+run-exp:
+	uv run src/lasernet/experiments.py
+
+hpc:
+	uv run src/lasernet/preprocess.py
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type temperature --num-workers 4 --max-epochs 100
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18 
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type temperature --num-workers 4 --max-epochs 100 --loss loss-front-combined
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature --loss loss-front-combined
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18 --loss loss-front-combined
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type microstructure --num-workers 4 --max-epochs 100
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type microstructure
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type microstructure --timestep 18 
+
+	uv run src/lasernet/train.py  --network deep_cnn_lstm_large --field-type microstructure --num-workers 4 --max-epochs 100 --loss loss-front-combined
+	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type microstructure --loss loss-front-combined
+	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type microstructure --timestep 18 --loss loss-front-combined
+
+notebook:
+	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/cascaded-prediction-demo.ipynb
+
+
+kernel:
+	uv run python -m ipykernel install --user --name python3 --display-name "Python 3"
