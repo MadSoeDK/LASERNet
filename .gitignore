@@ -192,7 +192,13 @@ lightning_logs/
 
 # results
 /results/
+/notebooks/*.png
 
 # logs
 wandb/
 batch/logs/
+
+# results and figures
+figures/
+/models
+/results

@@ -74,7 +74,7 @@ class ConvLSTMCell(nn.Module):
         # Apply activations
         i = torch.sigmoid(i)  # Input gate
         f = torch.sigmoid(f)  # Forget gate
-        g = torch.tanh(g)     # Cell candidate
+        g = torch.tanh(g)  # Cell candidate
         o = torch.sigmoid(o)  # Output gate
 
         # Update cell and hidden state
@@ -129,24 +129,28 @@ class ConvLSTM(nn.Module):
         self.layer_norm = layer_norm
 
         # Create ConvLSTM cells for each layer
-        self.cells = nn.ModuleList([
-            ConvLSTMCell(
-                input_dim=input_dim if i == 0 else hidden_dim,
-                hidden_dim=hidden_dim,
-                kernel_size=kernel_size,
-            )
-            for i in range(num_layers)
-        ])
+        self.cells = nn.ModuleList(
+            [
+                ConvLSTMCell(
+                    input_dim=input_dim if i == 0 else hidden_dim,
+                    hidden_dim=hidden_dim,
+                    kernel_size=kernel_size,
+                )
+                for i in range(num_layers)
+            ]
+        )
 
         # Optional dropout between layers
         self.dropout = nn.Dropout2d(dropout) if dropout > 0 else None
 
         # Optional layer normalization
         if layer_norm:
-            self.layer_norms = nn.ModuleList([
-                nn.GroupNorm(1, hidden_dim)  # Instance norm equivalent
-                for _ in range(num_layers)
-            ])
+            self.layer_norms = nn.ModuleList(
+                [
+                    nn.GroupNorm(1, hidden_dim)  # Instance norm equivalent
+                    for _ in range(num_layers)
+                ]
+            )
 
     def forward(
         self,
@@ -169,12 +173,14 @@ class ConvLSTM(nn.Module):
         batch_size, seq_len, _, height, width = x.size()
 
         # Initialize hidden states for all layers
-        h = [torch.zeros(batch_size, self.hidden_dim, height, width,
-                         device=x.device, dtype=x.dtype)
-             for _ in range(self.num_layers)]
-        c = [torch.zeros(batch_size, self.hidden_dim, height, width,
-                         device=x.device, dtype=x.dtype)
-             for _ in range(self.num_layers)]
+        h = [
+            torch.zeros(batch_size, self.hidden_dim, height, width, device=x.device, dtype=x.dtype)
+            for _ in range(self.num_layers)
+        ]
+        c = [
+            torch.zeros(batch_size, self.hidden_dim, height, width, device=x.device, dtype=x.dtype)
+            for _ in range(self.num_layers)
+        ]
 
         outputs = []
 
@@ -186,10 +192,7 @@ class ConvLSTM(nn.Module):
             for layer in range(self.num_layers):
                 input_t = x_t if layer == 0 else h[layer - 1]
 
-                h[layer], c[layer] = self.cells[layer](
-                    input_t,
-                    (h[layer], c[layer])
-                )
+                h[layer], c[layer] = self.cells[layer](input_t, (h[layer], c[layer]))
 
                 # Apply layer norm if enabled
                 if self.layer_norm:

@@ -43,13 +43,7 @@ def plot_temperature_sequence(
     for i in range(seq_len):
         frame = input_seq[i, 0].cpu().numpy()  # Shape: [X, Z]
         im = axes[i].imshow(
-            frame.T,
-            cmap="hot",
-            vmin=vmin,
-            vmax=vmax,
-            aspect='equal',
-            interpolation='nearest',
-            origin='lower'
+            frame.T, cmap="hot", vmin=vmin, vmax=vmax, aspect="equal", interpolation="nearest", origin="lower"
         )
         axes[i].set_title(f"Context {i}")
         axes[i].set_xlabel("X coordinate")
@@ -60,13 +54,7 @@ def plot_temperature_sequence(
     # Plot target frame
     frame = target[0].cpu().numpy()  # Shape: [X, Z]
     im = axes[seq_len].imshow(
-        frame.T,
-        cmap="hot",
-        vmin=vmin,
-        vmax=vmax,
-        aspect='equal',
-        interpolation='nearest',
-        origin='lower'
+        frame.T, cmap="hot", vmin=vmin, vmax=vmax, aspect="equal", interpolation="nearest", origin="lower"
     )
     axes[seq_len].set_title("Target (Ground Truth)")
     axes[seq_len].set_xlabel("X coordinate")
@@ -78,13 +66,7 @@ def plot_temperature_sequence(
     if prediction is not None:
         frame = prediction[0].cpu().numpy()  # Shape: [X, Z]
         im = axes[seq_len + 1].imshow(
-            frame.T,
-            cmap="hot",
-            vmin=vmin,
-            vmax=vmax,
-            aspect='equal',
-            interpolation='nearest',
-            origin='lower'
+            frame.T, cmap="hot", vmin=vmin, vmax=vmax, aspect="equal", interpolation="nearest", origin="lower"
         )
         axes[seq_len + 1].set_title("Prediction")
         axes[seq_len + 1].set_xlabel("X coordinate")
@@ -98,7 +80,7 @@ def plot_temperature_sequence(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
 
     return fig
 
@@ -133,13 +115,7 @@ def plot_prediction_error(
 
     # Plot target
     im0 = axes[0].imshow(
-        target_np.T,
-        cmap="hot",
-        vmin=vmin,
-        vmax=vmax,
-        aspect='equal',
-        interpolation='nearest',
-        origin='lower'
+        target_np.T, cmap="hot", vmin=vmin, vmax=vmax, aspect="equal", interpolation="nearest", origin="lower"
     )
     axes[0].set_title("Target (Ground Truth)")
     axes[0].set_xlabel("X coordinate")
@@ -149,13 +125,7 @@ def plot_prediction_error(
 
     # Plot prediction
     im1 = axes[1].imshow(
-        pred_np.T,
-        cmap="hot",
-        vmin=vmin,
-        vmax=vmax,
-        aspect='equal',
-        interpolation='nearest',
-        origin='lower'
+        pred_np.T, cmap="hot", vmin=vmin, vmax=vmax, aspect="equal", interpolation="nearest", origin="lower"
     )
     axes[1].set_title("Prediction")
     axes[1].set_xlabel("X coordinate")
@@ -164,13 +134,7 @@ def plot_prediction_error(
     plt.colorbar(im1, ax=axes[1], label="Temperature (°C)")
 
     # Plot absolute error
-    im2 = axes[2].imshow(
-        error.T,
-        cmap="viridis",
-        aspect='equal',
-        interpolation='nearest',
-        origin='lower'
-    )
+    im2 = axes[2].imshow(error.T, cmap="viridis", aspect="equal", interpolation="nearest", origin="lower")
     axes[2].set_title(f"Absolute Error (MAE: {error.mean():.1f}°C)")
     axes[2].set_xlabel("X coordinate")
     axes[2].set_ylabel("Z coordinate")
@@ -180,7 +144,7 @@ def plot_prediction_error(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
 
     return fig
 
@@ -206,12 +170,12 @@ def plot_temperature_statistics(
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
     # Histogram
-    axes[0].hist(temperatures.flatten(), bins=bins, edgecolor='black', alpha=0.7, color='coral')
+    axes[0].hist(temperatures.flatten(), bins=bins, edgecolor="black", alpha=0.7, color="coral")
     axes[0].set_xlabel("Temperature (°C)")
     axes[0].set_ylabel("Frequency")
     axes[0].set_title("Temperature Distribution")
-    axes[0].axvline(temperatures.mean(), color='red', linestyle='--', label=f'Mean: {temperatures.mean():.1f}°C')
-    axes[0].axvline(300, color='blue', linestyle='--', label='Room temp: 300°C')
+    axes[0].axvline(temperatures.mean(), color="red", linestyle="--", label=f"Mean: {temperatures.mean():.1f}°C")
+    axes[0].axvline(300, color="blue", linestyle="--", label="Room temp: 300°C")
     axes[0].legend()
     axes[0].grid(alpha=0.3)
 
@@ -226,13 +190,12 @@ def plot_temperature_statistics(
     stats_text += f"Max: {temperatures.max():.1f}°C\n"
     stats_text += f"Mean: {temperatures.mean():.1f}°C\n"
     stats_text += f"Std: {temperatures.std():.1f}°C"
-    axes[1].text(1.3, temperatures.mean(), stats_text,
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    axes[1].text(1.3, temperatures.mean(), stats_text, bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5))
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
 
     return fig
 
@@ -270,13 +233,7 @@ def create_animation_frames(
 
         fig, ax = plt.subplots(figsize=(10, 5))
         im = ax.imshow(
-            frame.T,
-            cmap="hot",
-            vmin=vmin,
-            vmax=vmax,
-            aspect='equal',
-            interpolation='nearest',
-            origin='lower'
+            frame.T, cmap="hot", vmin=vmin, vmax=vmax, aspect="equal", interpolation="nearest", origin="lower"
         )
         ax.set_title(f"Timestep {t}")
         ax.set_xlabel("X coordinate")
@@ -285,7 +242,7 @@ def create_animation_frames(
         plt.colorbar(im, ax=ax, label="Temperature (°C)")
 
         frame_path = output_dir / f"{prefix}_{t:04d}.png"
-        plt.savefig(frame_path, dpi=150, bbox_inches='tight')
+        plt.savefig(frame_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
         frame_paths.append(frame_path)
@@ -328,46 +285,46 @@ def plot_temperature_prediction(
     for i in range(min(3, input_seq.shape[0])):
         ax = axes[0, i]
         frame = input_seq[i, 0].cpu().numpy()
-        im = ax.imshow(frame.T, cmap='hot', aspect='equal', vmin=vmin, vmax=vmax,
-                      interpolation='nearest', origin='lower')
-        ax.set_title(f'Input Frame {i+1}')
+        im = ax.imshow(
+            frame.T, cmap="hot", aspect="equal", vmin=vmin, vmax=vmax, interpolation="nearest", origin="lower"
+        )
+        ax.set_title(f"Input Frame {i+1}")
         ax.set_xlabel("X coordinate")
         ax.set_ylabel("Z coordinate")
         ax.invert_yaxis()
-        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Temperature (K)")
 
     # Plot ground truth (bottom left)
     ax = axes[1, 0]
     target_np = target[0].cpu().numpy()
-    im = ax.imshow(target_np.T, cmap='hot', aspect='equal', vmin=vmin, vmax=vmax,
-                  interpolation='nearest', origin='lower')
-    ax.set_title('Ground Truth')
+    im = ax.imshow(
+        target_np.T, cmap="hot", aspect="equal", vmin=vmin, vmax=vmax, interpolation="nearest", origin="lower"
+    )
+    ax.set_title("Ground Truth")
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Temperature (K)")
 
     # Plot prediction (bottom middle)
     ax = axes[1, 1]
     pred_np = prediction[0].cpu().numpy()
-    im = ax.imshow(pred_np.T, cmap='hot', aspect='equal', vmin=vmin, vmax=vmax,
-                  interpolation='nearest', origin='lower')
-    ax.set_title('Prediction')
+    im = ax.imshow(pred_np.T, cmap="hot", aspect="equal", vmin=vmin, vmax=vmax, interpolation="nearest", origin="lower")
+    ax.set_title("Prediction")
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Temperature (K)')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Temperature (K)")
 
     # Plot error map (bottom right)
     ax = axes[1, 2]
     error = np.abs(target_np - pred_np)
-    im = ax.imshow(error.T, cmap='RdYlBu_r', aspect='equal',
-                  interpolation='nearest', origin='lower')
-    ax.set_title(f'Absolute Error (MAE: {error.mean():.1f} K)')
+    im = ax.imshow(error.T, cmap="RdYlBu_r", aspect="equal", interpolation="nearest", origin="lower")
+    ax.set_title(f"Absolute Error (MAE: {error.mean():.1f} K)")
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Error (K)')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Error (K)")
 
     if title:
         fig.suptitle(title, fontsize=14, y=1.02)
@@ -375,7 +332,7 @@ def plot_temperature_prediction(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
 
     return fig
 
@@ -412,8 +369,8 @@ def plot_microstructure_prediction(
         ax = axes[0, i]
         frame = input_seq[i, 0:3].cpu().float().numpy()  # [3, H, W]
         frame_rgb = np.clip(np.transpose(frame, (2, 1, 0)), 0, 1).astype(np.float32)  # [W, H, 3]
-        ax.imshow(frame_rgb, aspect='equal', interpolation='nearest', origin='lower')
-        ax.set_title(f'Input Frame {i+1}')
+        ax.imshow(frame_rgb, aspect="equal", interpolation="nearest", origin="upper")
+        ax.set_title(f"Input Frame {i+1}")
         ax.set_xlabel("X coordinate")
         ax.set_ylabel("Z coordinate")
         ax.invert_yaxis()
@@ -421,8 +378,8 @@ def plot_microstructure_prediction(
     # Plot ground truth (bottom left)
     ax = axes[1, 0]
     target_rgb = np.clip(np.transpose(target[0:3].cpu().float().numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
-    ax.imshow(target_rgb, aspect='equal', interpolation='nearest', origin='lower')
-    ax.set_title('Ground Truth')
+    ax.imshow(target_rgb, aspect="equal", interpolation="nearest", origin="upper")
+    ax.set_title("Ground Truth")
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
@@ -430,8 +387,8 @@ def plot_microstructure_prediction(
     # Plot prediction (bottom middle)
     ax = axes[1, 1]
     pred_rgb = np.clip(np.transpose(prediction[0:3].cpu().float().numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
-    ax.imshow(pred_rgb, aspect='equal', interpolation='nearest', origin='lower')
-    ax.set_title('Prediction')
+    ax.imshow(pred_rgb, aspect="equal", interpolation="nearest", origin="upper")
+    ax.set_title("Prediction")
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
@@ -440,14 +397,13 @@ def plot_microstructure_prediction(
     ax = axes[1, 2]
     target_np = target[0:3].cpu().float().numpy()  # [3, H, W]
     pred_np = prediction[0:3].cpu().float().numpy()  # [3, H, W]
-    error = np.mean(np.abs(target_np - pred_np), axis=0).astype(np.float32)  # [H, W]
-    im = ax.imshow(error.T, cmap='RdYlBu_r', aspect='equal',
-                  interpolation='nearest', origin='lower')
-    ax.set_title(f'Absolute Error (MAE: {error.mean():.4f})')
+    error = np.mean((target_np - pred_np) ** 2, axis=0).astype(np.float32)  # [H, W]
+    im = ax.imshow(error.T, cmap="RdYlBu_r", aspect="equal", interpolation="nearest", origin="upper")
+    ax.set_title(f"Mean Squared Error (MSE: {error.mean():.4f})")
     ax.set_xlabel("X coordinate")
     ax.set_ylabel("Z coordinate")
     ax.invert_yaxis()
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Error')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Error")
 
     if title:
         fig.suptitle(title, fontsize=14, y=1.02)
@@ -455,7 +411,7 @@ def plot_microstructure_prediction(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
 
     return fig
 
@@ -482,24 +438,24 @@ def plot_loss_curves(
 
     epochs = range(1, len(train_losses) + 1)
 
-    ax.plot(epochs, train_losses, 'b-', label='Training Loss', linewidth=2)
-    ax.plot(epochs, val_losses, 'r-', label='Validation Loss', linewidth=2)
+    ax.plot(epochs, train_losses, "b-", label="Training Loss", linewidth=2)
+    ax.plot(epochs, val_losses, "r-", label="Validation Loss", linewidth=2)
 
-    ax.set_xlabel('Epoch', fontsize=12)
-    ax.set_ylabel('Loss', fontsize=12)
-    ax.set_title('Training and Validation Loss', fontsize=14)
+    ax.set_xlabel("Epoch", fontsize=12)
+    ax.set_ylabel("Loss", fontsize=12)
+    ax.set_title("Training and Validation Loss", fontsize=14)
     ax.legend(fontsize=10)
     ax.grid(alpha=0.3)
 
     # Add min validation loss marker
     min_val_loss = min(val_losses)
     min_epoch = val_losses.index(min_val_loss) + 1
-    ax.axvline(min_epoch, color='green', linestyle='--', alpha=0.5, label=f'Best epoch: {min_epoch}')
-    ax.plot(min_epoch, min_val_loss, 'g*', markersize=15)
+    ax.axvline(min_epoch, color="green", linestyle="--", alpha=0.5, label=f"Best epoch: {min_epoch}")
+    ax.plot(min_epoch, min_val_loss, "g*", markersize=15)
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
 
     return fig

@@ -12,14 +12,15 @@ import typer
 
 from lasernet.data import LaserDataset
 from lasernet.models.base import BaseModel
-from lasernet.laser_types import FieldType, LossType, NetworkType
+from lasernet.laser_types import FieldType, LossType, NetworkType, T_SOLIDUS, T_LIQUIDUS
 from lasernet.utils import get_checkpoint_path, get_loss_fn, get_loss_type, get_model
+
 # load env variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
 
 
 def train(
@@ -29,6 +30,7 @@ def train(
     num_workers: int = 0,
     seq_len: int = 3,
     use_wandb: bool = True,
+    wandb_group: str | None = None,
 ):
     if torch.cuda.is_available():
         device_name = torch.cuda.get_device_name(0)
@@ -68,33 +70,38 @@ def train(
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(
         dirpath="models",
-        filename=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
+        filename=get_checkpoint_path(
+            Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len
+        ).stem,
         monitor="val_loss",
         mode="min",
         save_top_k=1,
-        enable_version_counter=False
+        enable_version_counter=False,
     )
 
     # Configure early stopping to prevent overfitting
     early_stopping_callback = EarlyStopping(
         monitor="val_loss",
-        patience=10,
+        patience=15,
         mode="min",
     )
 
     # Configure TensorBoard logger
     tb_logger = TensorBoardLogger(
         save_dir="lightning_logs",
-        name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem,
+        name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len).stem,
     )
 
     # initialise the wandb logger
     wandb_logger = None
     if use_wandb:
         wandb_logger = WandbLogger(
-            name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type).stem, 
-            project=os.getenv("WANDB_PROJECT")
-            )
+            name=get_checkpoint_path(
+                Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len
+            ).stem,
+            project=os.getenv("WANDB_PROJECT"),
+            group=wandb_group,
+        )
         wandb_logger.experiment.config["batch_size"] = batch_size
 
     trainer = Trainer(
@@ -106,7 +113,7 @@ def train(
     trainer.fit(
         model,
         train_dataloaders=DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers),
-        val_dataloaders=DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        val_dataloaders=DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
     )
 
     logger.info(f"Training complete! Model saved to {checkpoint_callback.best_model_path}")
@@ -124,15 +131,22 @@ def main(
     learning_rate: float = 1e-3,
     # loss parameters
     loss: LossType = "mse",
-    t_solidus: float = 1560.0,
-    t_liquidus: float = 1620.0,
-    solidification_weight: float = 0.7,
-    global_weight: float = 0.3,
+    t_solidus: float = T_SOLIDUS,
+    t_liquidus: float = T_LIQUIDUS,
+    solidification_weight: float = 0.5,
+    global_weight: float = 0.5,
     # misc
     use_wandb: bool = True,
+    wandb_group: str | None = None,
 ):
     """Train a model based on specified network type and field type."""
-    loss_fn = get_loss_fn(loss, T_solidus=t_solidus, T_liquidus=t_liquidus, solidification_weight=solidification_weight, global_weight=global_weight)
+    loss_fn = get_loss_fn(
+        loss,
+        T_solidus=t_solidus,
+        T_liquidus=t_liquidus,
+        solidification_weight=solidification_weight,
+        global_weight=global_weight,
+    )
 
     # Note: _Large variants have hardcoded architecture, so only pass learning_rate and loss_fn
     model_params = {
@@ -143,7 +157,7 @@ def main(
     model = get_model(field_type=field_type, network=network, **model_params)
 
     # check if model is already trained
-    checkpoint_path = get_checkpoint_path(Path("models/"), model, loss, model.field_type)
+    checkpoint_path = get_checkpoint_path(Path("models/"), model, loss, model.field_type, seq_len)
     if checkpoint_path.exists():
         logger.info(f"Model checkpoint already exists at {checkpoint_path}. Skipping training.")
         return
@@ -155,7 +169,9 @@ def main(
         num_workers=num_workers,
         seq_len=seq_len,
         use_wandb=use_wandb,
+        wandb_group=wandb_group,
     )
+
 
 if __name__ == "__main__":
     typer.run(main)

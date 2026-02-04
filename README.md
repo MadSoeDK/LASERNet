@@ -1,50 +1,77 @@
-````markdown
-# lasernet
+# LASERNet
 
-Spatiotemporal deep learning for predicting microstructure evolution in laser-based additive manufacturing
+Spatiotemporal deep learning for predicting microstructure evolution in laser-based additive manufacturing.
+
+## Highlights
+- Multiple architectures (CNN-LSTM, PredRNN, Transformer U-Net, MLP baselines)
+- End-to-end training/evaluation/prediction scripts
+- Reproducible experiments via YAML configs
+
+## Installation
+This project uses uv and Python 3.12.
+
+```bash
+uv sync --locked --dev
+```
+
+## Data setup
+On DTU HPC, data and models are uses large storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data` and `models`, so that they are relative to the project root directory.
+
+```bash
+ln -s "$BLACKHOLE/models" /zhome/b0/7/168550/Github/LASERNet/models
+ln -s "$BLACKHOLE/data" /zhome/b0/7/168550/Github/LASERNet/data
+```
+
+## Quickstart
+Train, evaluate, and predict via CLI scripts:
+
+```bash
+uv run src/lasernet/train.py --network deep_cnn_lstm_large --field-type temperature
+uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature
+uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18
+```
+
+Experiments from YAML configs:
+
+```bash
+uv run src/lasernet/experiments/experiments.py
+```
+
+## Results
+
+**Model prediction comparison (timestep 3).** Qualitative comparison across selected models for a fixed timestep.
+
+![Model prediction comparison](model_prediction_comparison_3.png)
+
+**Timestep evolution (18 → 21).** Predicted temporal evolution in the microstructure field.
+
+![Timestep evolution](timestep_evolution_18_21.png)
+
+**MSE error maps.** Spatial error distribution highlighting challenging regions.
+
+![MSE error maps](model_mse_error_maps.png)
+
+## Tests
+
+```bash
+uv run pytest -q
+```
 
 ## Project structure
 
-The directory structure of the project looks like this:
 ```txt
-├── .github/                  # Github actions and dependabot
-│   └── workflows/
-│       └── tests.yaml
-├── configs/                  # Configuration files
-├── data/                     # Data directory
-│   ├── processed
-│   └── raw
-├── models/                   # Trained models
-├── notebooks/                # Jupyter notebooks
-├── reports/                  # Reports
-│   └── figures/
-├── src/                      # Source code
-│   ├── project_name/
-│   │   ├── __init__.py
-│   │   ├── data.py
-│   │   ├── evaluate.py
-│   │   ├── models.py
-│   │   ├── train.py
-│   │   └── visualize.py
-└── tests/                    # Tests
-├── .gitignore
-├── .pre-commit-config.yaml
-├── LICENSE
-├── pyproject.toml            # Python project file
-├── README.md                 # Project README
-└── tasks.py                  # Project tasks
+├── .github/                  # CI workflows
+├── configs/                  # Experiment configs
+├── data/                     # Data (raw/processed)
+├── models/                   # Model checkpoints
+├── notebooks/                # Demos and exploration
+├── results/                  # Evaluation artifacts
+├── src/lasernet/             # Package source
+│   ├── data/                 # Dataset + normalization
+│   ├── models/               # Model implementations
+│   ├── evaluate.py           # Evaluation CLI
+│   ├── predict.py            # Prediction CLI
+│   ├── train.py              # Training CLI
+│   └── utils.py              # Utilities
+└── tests/                    # Unit tests
 ```
-
-````
-
-## Tensorboard on the HPC
-Start tensorboard
-```
-make tensorboard
-```
-
-From you local machine, create SSH tunnel
-```
-ssh -L 6006:localhost:6006 your_username@hpc_login_node
-```
-Then open `http://localhost:6006` in your browser

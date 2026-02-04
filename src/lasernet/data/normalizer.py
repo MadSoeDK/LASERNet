@@ -53,9 +53,7 @@ class DataNormalizer:
             self (for method chaining)
         """
         if data.shape[1] != self.num_channels:
-            raise ValueError(
-                f"Expected {self.num_channels} channels, got {data.shape[1]}"
-            )
+            raise ValueError(f"Expected {self.num_channels} channels, got {data.shape[1]}")
 
         # Compute min/max over all dimensions except channel dim
         self.channel_mins = data.amin(dim=(0, 2, 3))  # [C]
@@ -166,9 +164,7 @@ class DataNormalizer:
     def _check_fitted(self) -> None:
         """Raise error if not fitted."""
         if not self.is_fitted:
-            raise RuntimeError(
-                "Normalizer not fitted. Call fit() first or load from file."
-            )
+            raise RuntimeError("Normalizer not fitted. Call fit() first or load from file.")
 
     def __repr__(self) -> str:
         fitted_str = "fitted" if self.is_fitted else "not fitted"

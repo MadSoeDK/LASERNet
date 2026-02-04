@@ -1,0 +1,9 @@
+# Baseline ConvLSTM (no encoder-decoder) for microstructure - seq_len=2
+network: base_convlstm
+field_type: microstructure
+loss: mse
+seq_len: 2
+max_epochs: 100
+num_workers: 4
+learning_rate: 1e-3
+batch_size: 16

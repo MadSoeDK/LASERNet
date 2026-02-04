@@ -1,0 +1,10 @@
+# CNN-LSTM with 2-level encoder (4x spatial reduction) + Combined Loss
+# Maximizes grain-scale detail preservation with solidification-weighted loss
+network: deep_cnn_lstm_shallow2l
+field_type: microstructure
+loss: loss-front-combined
+seq_len: 3
+max_epochs: 100
+num_workers: 4
+learning_rate: 1e-3
+batch_size: 16

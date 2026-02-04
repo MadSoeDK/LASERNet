@@ -203,9 +203,7 @@ class TestComputeSplitIndices:
     def test_custom_fractions(self):
         """Test with custom split fractions."""
         total_size = 100
-        train_range, val_range, test_range = compute_split_indices(
-            total_size, train_frac=0.6, val_frac=0.2
-        )
+        train_range, val_range, test_range = compute_split_indices(total_size, train_frac=0.6, val_frac=0.2)
 
         # 60% train = 60, 20% val = 20, 20% test = 20
         assert list(train_range) == list(range(0, 60))

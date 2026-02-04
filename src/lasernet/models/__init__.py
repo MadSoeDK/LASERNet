@@ -5,18 +5,54 @@ This module contains multiple neural network architectures optimized for
 spatiotemporal field prediction in laser material processing:
 
 - DeepCNN_LSTM: Scaled-up CNN-LSTM with deeper/wider layers
-- AttentionUNet: U-Net with attention gates for focused prediction
-- TransformerUNet: U-Net with temporal transformer for sequence modeling
+- PredRNN: Spatiotemporal LSTM with zigzag memory flow
+- BaselineConvLSTM: ConvLSTM without U-Net (baseline for comparison)
+- BaselinePredRNN: PredRNN without U-Net (baseline for comparison)
+- DeepCNN_MLP: CNN encoder-decoder with MLP temporal modeling
 """
 
-from lasernet.models.deep_cnn_lstm import DeepCNN_LSTM
-from lasernet.models.attention_unet import AttentionUNet
-from lasernet.models.transformer_unet import TransformerUNet
+from lasernet.models.deep_cnn_lstm import (
+    DeepCNN_LSTM,
+    DeepCNN_LSTM_Large,
+    DeepCNN_LSTM_Medium,
+    DeepCNN_LSTM_Shallow4L,
+    DeepCNN_LSTM_Shallow3L,
+)
+from lasernet.models.cnn_mlp import DeepCNN_MLP, DeepCNN_MLP_Medium, DeepCNN_MLP_Large
+from lasernet.models.predrnn import PredRNN, PredRNN_Large, PredRNN_Light, PredRNN_Shallow4L, PredRNN_Shallow3L
+from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
+from lasernet.models.baseline_recurrent import (
+    BaselineConvLSTM,
+    BaselineConvLSTM_Large,
+    BaselineConvLSTM_Light,
+    BaselinePredRNN,
+    BaselinePredRNN_Large,
+    BaselinePredRNN_Light,
+)
 from lasernet.models.base import BaseModel
 
 __all__ = [
     "DeepCNN_LSTM",
-    "AttentionUNet",
-    "TransformerUNet",
+    "DeepCNN_LSTM_Large",
+    "DeepCNN_LSTM_Medium",
+    "DeepCNN_LSTM_Shallow4L",
+    "DeepCNN_LSTM_Shallow3L",
+    "DeepCNN_MLP",
+    "DeepCNN_MLP_Medium",
+    "DeepCNN_MLP_Large",
+    "PredRNN",
+    "PredRNN_Large",
+    "PredRNN_Light",
+    "PredRNN_Shallow4L",
+    "PredRNN_Shallow3L",
+    "MLP",
+    "MLP_Large",
+    "MLP_Light",
+    "BaselineConvLSTM",
+    "BaselineConvLSTM_Large",
+    "BaselineConvLSTM_Light",
+    "BaselinePredRNN",
+    "BaselinePredRNN_Large",
+    "BaselinePredRNN_Light",
     "BaseModel",
 ]
