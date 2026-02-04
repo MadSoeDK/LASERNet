@@ -1,14 +1,10 @@
-"""
-Model Comparison Script - Section 6.1 from cascaded-prediction-demo.ipynb
-
-Compare predictions from 3 different microstructure models against ground truth.
-"""
-
 import sys
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from lasernet.data.dataset import LaserDataset
+from lasernet.utils import compute_index, get_num_of_slices, load_model_from_path
 
 # Font size configuration
 SMALL_SIZE = 12
@@ -25,10 +21,6 @@ plt.rcParams.update({
 })
 
 sys.path.insert(0, "../src")
-
-from lasernet.data.dataset import LaserDataset
-from lasernet.utils import compute_index, get_num_of_slices, load_model_from_path
-
 
 def main():
     # Set device
@@ -167,11 +159,7 @@ def main():
     ylabel = fig.supylabel("Z coordinate")
     ylabel.set_fontsize(SMALL_SIZE)
 
-    xlabel = axes[-1].set_xlabel("X coordinate")
     axes[-1].xaxis.label.set_fontsize(SMALL_SIZE)
-
-    #title = fig.suptitle("Microstructure Prediction")
-    #title.set_fontsize(BIGGER_SIZE)
 
     plt.tight_layout()
 

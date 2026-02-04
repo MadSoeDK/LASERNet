@@ -12,7 +12,6 @@ Models:
 
 import torch
 import torch.nn as nn
-from typing import List
 
 from lasernet.models.base import BaseModel
 from lasernet.models.components.convlstm import ConvLSTM

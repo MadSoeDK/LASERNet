@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
         # Print single sample shape
         input_seq, target, temperature, mask = dataset[0]
-        print(f"\n  Sample shapes:")
+        print("\n  Sample shapes:")
         print(f"    Input sequence: {input_seq.shape}")
         print(f"    Target: {target.shape}")
         print(f"    Target temperature: {temperature.shape}")

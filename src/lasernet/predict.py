@@ -9,7 +9,7 @@ from lasernet.data.normalizer import DataNormalizer
 import typer
 
 from lasernet.laser_types import FieldType, LossType, NetworkType, PlaneType
-from lasernet.utils import compute_index, get_checkpoint_path, get_model_from_checkpoint, get_num_of_slices, loss_name_from_type
+from lasernet.utils import compute_index, get_checkpoint_path, get_model_from_checkpoint, get_num_of_slices
 from lasernet.visualize import plot_temperature_prediction, plot_microstructure_prediction
 
 logger = logging.getLogger(__name__)

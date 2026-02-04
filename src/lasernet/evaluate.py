@@ -9,7 +9,7 @@ from lasernet.data import LaserDataset
 from lasernet.data.normalizer import DataNormalizer
 from lasernet.models.base import BaseModel
 from lasernet.laser_types import FieldType, LossType, NetworkType
-from lasernet.utils import get_checkpoint_path, get_model_filename, get_model_from_checkpoint, loss_name_from_type
+from lasernet.utils import get_model_filename, get_model_from_checkpoint
 from torch.utils.data import DataLoader
 import typer
 from dotenv import load_dotenv

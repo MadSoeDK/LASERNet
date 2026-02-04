@@ -37,7 +37,7 @@ TIMESTEP_PATTERN = re.compile(r"(\d+)(?!.*\d)")
 
 TRAIN_SPLIT_FRACTION = 0.5
 VAL_SPLIT_FRACTION = 0.25
-TOTAL_TIMESTEPS = 24
+TOTAL_TIMESTEPS = 25
 
 def compute_split_indices(
     total_size: int,
@@ -77,7 +77,7 @@ def compute_index(
         slice_index: The slice index within that plane (0 to SLICES_PER_TIMESTEP-1)
 
     Returns:
-        Index relative to the split: (timestep - split_start) * SLICES_PER_TIMESTEP + slice_index
+        Global index: timestep * SLICES_PER_TIMESTEP + slice_index
     """
     # Define total slices per timestep
     SLICES_PER_TIMESTEP = get_num_of_slices(plane)
@@ -112,9 +112,8 @@ def compute_index(
     if slice_index < 0 or slice_index >= SLICES_PER_TIMESTEP:
         raise ValueError(f"slice_index {slice_index} out of range for {plane} plane [0, {SLICES_PER_TIMESTEP})")
 
-    # Compute index relative to the split
-    relative_timestep = timestep - split_start
-    return relative_timestep * SLICES_PER_TIMESTEP + slice_index
+    # Compute global index
+    return timestep * SLICES_PER_TIMESTEP + slice_index
 
 
 def compute_timestep_from_index(
