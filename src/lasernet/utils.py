@@ -90,19 +90,15 @@ def compute_index(
 
     # Validate timestep is in the correct split and get split start
     if split == "train":
-        split_start = 0
         if timestep < 0 or timestep >= train_end:
             raise ValueError(f"timestep {timestep} out of range for train split [0, {train_end})")
     elif split == "val":
-        split_start = train_end
         if timestep < train_end or timestep >= val_end:
             raise ValueError(f"timestep {timestep} out of range for val split [{train_end}, {val_end})")
     elif split == "test":
-        split_start = val_end
         if timestep < val_end or timestep >= TOTAL_TIMESTEPS:
             raise ValueError(f"timestep {timestep} out of range for test split [{val_end}, {TOTAL_TIMESTEPS})")
     elif split == "all":
-        split_start = 0
         if timestep < 0 or timestep >= TOTAL_TIMESTEPS:
             raise ValueError(f"timestep {timestep} out of range for all split [0, {TOTAL_TIMESTEPS})")
     else:
