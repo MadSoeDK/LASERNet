@@ -200,5 +200,5 @@ batch/logs/
 
 # results and figures
 figures/
-*.png
 /models
+/results

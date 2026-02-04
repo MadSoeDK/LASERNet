@@ -37,6 +37,20 @@ Experiments from YAML configs:
 uv run src/lasernet/experiments/experiments.py
 ```
 
+## Results
+
+**Model prediction comparison (timestep 3).** Qualitative comparison across selected models for a fixed timestep.
+
+![Model prediction comparison](model_prediction_comparison_3.png)
+
+**Timestep evolution (18 → 21).** Predicted temporal evolution in the microstructure field.
+
+![Timestep evolution](timestep_evolution_18_21.png)
+
+**MSE error maps.** Spatial error distribution highlighting challenging regions.
+
+![MSE error maps](model_mse_error_maps.png)
+
 ## Tests
 
 ```bash
