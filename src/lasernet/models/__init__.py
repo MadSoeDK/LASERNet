@@ -5,8 +5,6 @@ This module contains multiple neural network architectures optimized for
 spatiotemporal field prediction in laser material processing:
 
 - DeepCNN_LSTM: Scaled-up CNN-LSTM with deeper/wider layers
-- AttentionUNet: U-Net with attention gates for focused prediction
-- TransformerUNet: U-Net with temporal transformer for sequence modeling
 - PredRNN: Spatiotemporal LSTM with zigzag memory flow
 - BaselineConvLSTM: ConvLSTM without U-Net (baseline for comparison)
 - BaselinePredRNN: PredRNN without U-Net (baseline for comparison)
@@ -18,8 +16,6 @@ from lasernet.models.deep_cnn_lstm import (
     DeepCNN_LSTM_Shallow4L, DeepCNN_LSTM_Shallow3L
 )
 from lasernet.models.cnn_mlp import DeepCNN_MLP, DeepCNN_MLP_Medium, DeepCNN_MLP_Large
-from lasernet.models.attention_unet import AttentionUNet, AttentionUNet_Deep, AttentionUNet_Light
-from lasernet.models.transformer_unet import TransformerUNet, TransformerUNet_Large, TransformerUNet_Light
 from lasernet.models.predrnn import (
     PredRNN, PredRNN_Large, PredRNN_Light,
     PredRNN_Shallow4L, PredRNN_Shallow3L
@@ -40,12 +36,6 @@ __all__ = [
     "DeepCNN_MLP",
     "DeepCNN_MLP_Medium",
     "DeepCNN_MLP_Large",
-    "AttentionUNet",
-    "AttentionUNet_Deep",
-    "AttentionUNet_Light",
-    "TransformerUNet",
-    "TransformerUNet_Large",
-    "TransformerUNet_Light",
     "PredRNN",
     "PredRNN_Large",
     "PredRNN_Light",

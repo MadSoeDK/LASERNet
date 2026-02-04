@@ -3,15 +3,10 @@ from pathlib import Path
 import logging
 from typing import Any, Tuple
 
-from lasernet import loss
 from lasernet.models.base import BaseModel
-from lasernet.models.transformer_unet import TransformerUNet
-from lasernet.temperature.model import TemperatureCNN_LSTM
-from lasernet.microstructure.model import MicrostructureCNN_LSTM
 from lasernet.data import LaserDataset
 from lasernet.data.normalizer import DataNormalizer
 import typer
-import pytorch_lightning as pl
 
 from lasernet.laser_types import FieldType, LossType, NetworkType, PlaneType
 from lasernet.utils import compute_index, get_checkpoint_path, get_model_from_checkpoint, get_num_of_slices, loss_name_from_type

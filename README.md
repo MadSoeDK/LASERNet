@@ -26,9 +26,9 @@ ln -s "$BLACKHOLE/data" /zhome/b0/7/168550/Github/LASERNet/data
 Train, evaluate, and predict via CLI scripts:
 
 ```bash
-uv run src/lasernet/train.py --network transformer_unet_large --field-type temperature
-uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type temperature
-uv run src/lasernet/predict.py --network transformer_unet_large --field-type temperature --timestep 18
+uv run src/lasernet/train.py --network deep_cnn_lstm_large --field-type temperature
+uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature
+uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18
 ```
 
 Experiments from YAML configs:

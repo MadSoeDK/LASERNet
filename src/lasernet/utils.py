@@ -12,8 +12,6 @@ from lasernet.models.deep_cnn_lstm import (
     DeepCNN_LSTM_Shallow4L, DeepCNN_LSTM_Shallow3L,
     DeepCNN_LSTM_Shallow2L
 )
-from lasernet.models.transformer_unet import TransformerUNet_Large
-from lasernet.models.attention_unet import AttentionUNet_Deep, AttentionUNet_Light
 from lasernet.models.predrnn import (
     PredRNN_Large, PredRNN_Medium, PredRNN_Light,
     PredRNN_Shallow4L, PredRNN_Shallow3L, PredRNN_Shallow2L
@@ -209,12 +207,6 @@ def get_model(field_type: FieldType, network: NetworkType, **kwargs):
         return DeepCNN_LSTM_Shallow3L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "deep_cnn_lstm_shallow2l":
         return DeepCNN_LSTM_Shallow2L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
-    elif network == "transformer_unet_large":
-        return TransformerUNet_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
-    elif network == "attention_unet_deep":
-        return AttentionUNet_Deep(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
-    elif network == "attention_unet_light":
-        return AttentionUNet_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "predrnn_large":
         return PredRNN_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "predrnn_medium":
@@ -266,12 +258,6 @@ def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field
         model_class = DeepCNN_LSTM_Shallow3L.load_from_checkpoint(_get_ckpt(DeepCNN_LSTM_Shallow3L(field_type=field_type)))
     elif network == "deep_cnn_lstm_shallow2l":
         model_class = DeepCNN_LSTM_Shallow2L.load_from_checkpoint(_get_ckpt(DeepCNN_LSTM_Shallow2L(field_type=field_type)))
-    elif network == "transformer_unet_large":
-        model_class = TransformerUNet_Large.load_from_checkpoint(_get_ckpt(TransformerUNet_Large(field_type=field_type)))
-    elif network == "attention_unet_deep":
-        model_class = AttentionUNet_Deep.load_from_checkpoint(_get_ckpt(AttentionUNet_Deep(field_type=field_type)))
-    elif network == "attention_unet_light":
-        model_class = AttentionUNet_Light.load_from_checkpoint(_get_ckpt(AttentionUNet_Light(field_type=field_type)))
     elif network == "predrnn_large":
         model_class = PredRNN_Large.load_from_checkpoint(_get_ckpt(PredRNN_Large(field_type=field_type)))
     elif network == "predrnn_medium":
@@ -337,12 +323,6 @@ MODEL_CLASSES = {
     'deepcnn_lstm_shallow3l': DeepCNN_LSTM_Shallow3L,
     'deepcnn_lstm_shallow2l': DeepCNN_LSTM_Shallow2L,
     'deep_cnn_lstm_shallow2l': DeepCNN_LSTM_Shallow2L,
-    'transformer_unet_large': TransformerUNet_Large,
-    'transformerunet_large': TransformerUNet_Large,  # Support both naming conventions
-    'attention_unet_deep': AttentionUNet_Deep,
-    'attentionunet_deep': AttentionUNet_Deep,
-    'attention_unet_light': AttentionUNet_Light,
-    'attentionunet_light': AttentionUNet_Light,
     'predrnn_large': PredRNN_Large,
     'predrnn_medium': PredRNN_Medium,
     'predrnn_light': PredRNN_Light,

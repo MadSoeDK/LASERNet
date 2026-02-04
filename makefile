@@ -41,23 +41,6 @@ hpc:
 	uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type microstructure --loss loss-front-combined
 	uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type microstructure --timestep 18 --loss loss-front-combined
 
-	uv run src/lasernet/train.py  --network transformer_unet_large --field-type temperature --num-workers 4 --max-epochs 100
-	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type temperature
-	uv run src/lasernet/predict.py --network transformer_unet_large --field-type temperature --timestep 18 
-
-	uv run src/lasernet/train.py  --network transformer_unet_large --field-type temperature --num-workers 4 --max-epochs 100 --loss loss-front-combined
-	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type temperature --loss loss-front-combined
-	uv run src/lasernet/predict.py --network transformer_unet_large --field-type temperature --timestep 18 --loss loss-front-combined
-
-	uv run src/lasernet/train.py  --network transformer_unet_large --field-type microstructure --num-workers 4 --max-epochs 100
-	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type microstructure
-	uv run src/lasernet/predict.py --network transformer_unet_large --field-type microstructure --timestep 18 
-
-	uv run src/lasernet/train.py  --network transformer_unet_large --field-type microstructure --num-workers 4 --max-epochs 100 --loss loss-front-combined
-	uv run src/lasernet/evaluate.py --network transformer_unet_large --field-type microstructure --loss loss-front-combined
-	uv run src/lasernet/predict.py --network transformer_unet_large --field-type microstructure --timestep 18 --loss loss-front-combined
-
-
 notebook:
 	uv run jupyter nbconvert --to notebook --execute --inplace --debug notebooks/cascaded-prediction-demo.ipynb
 
