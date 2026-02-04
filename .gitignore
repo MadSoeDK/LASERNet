@@ -197,3 +197,8 @@ lightning_logs/
 # logs
 wandb/
 batch/logs/
+
+# results and figures
+figures/
+*.png
+/models

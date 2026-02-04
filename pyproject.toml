@@ -39,6 +39,7 @@ dev = [
     "matplotlib>=3.10.8",
     "nbstripout>=0.9.0",
     "nbconvert>=7.16.6",
+    "ipykernel>=7.1.0",
 ]
 
 
