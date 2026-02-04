@@ -15,7 +15,7 @@ uv sync --locked --dev
 ```
 
 ## Data setup
-On DTU HPC, create symlinks to the data and models on the blackhole scratch drive (≈50 GB):
+On DTU HPC, data and models are uses large storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data` and `models`, so that they are relative to the project root directory.
 
 ```bash
 ln -s "$BLACKHOLE/models" /zhome/b0/7/168550/Github/LASERNet/models
