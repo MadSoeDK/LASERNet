@@ -10,17 +10,20 @@ from lasernet.utils import compute_index, get_num_of_slices, load_model_from_pat
 SMALL_SIZE = 12
 MEDIUM_SIZE = 16
 BIGGER_SIZE = 24
-plt.rcParams.update({
-    'font.size': SMALL_SIZE,
-    'axes.titlesize': MEDIUM_SIZE,
-    'axes.labelsize': MEDIUM_SIZE,
-    'xtick.labelsize': SMALL_SIZE,
-    'ytick.labelsize': SMALL_SIZE,
-    'legend.fontsize': SMALL_SIZE,
-    'figure.titlesize': BIGGER_SIZE,
-})
+plt.rcParams.update(
+    {
+        "font.size": SMALL_SIZE,
+        "axes.titlesize": MEDIUM_SIZE,
+        "axes.labelsize": MEDIUM_SIZE,
+        "xtick.labelsize": SMALL_SIZE,
+        "ytick.labelsize": SMALL_SIZE,
+        "legend.fontsize": SMALL_SIZE,
+        "figure.titlesize": BIGGER_SIZE,
+    }
+)
 
 sys.path.insert(0, "../src")
+
 
 def main():
     # Set device
@@ -69,15 +72,9 @@ def main():
     print("\nLoading microstructure models...")
 
     checkpoint_paths = {
-        "CNN-MLP": Path(
-            "./models/best_deepcnn_mlp_medium_microstructure_mseloss.ckpt"
-        ),
-        "CNN-PredRNN": Path(
-            "./models/best_predrnn_shallow3l_microstructure_mseloss.ckpt"
-        ),
-        "Base-ConvLSTM": Path(
-            "./models/best_baselineconvlstm_microstructure_mseloss.ckpt"
-        ),
+        "CNN-MLP": Path("./models/best_deepcnn_mlp_medium_microstructure_mseloss.ckpt"),
+        "CNN-PredRNN": Path("./models/best_predrnn_shallow3l_microstructure_mseloss.ckpt"),
+        "Base-ConvLSTM": Path("./models/best_baselineconvlstm_microstructure_mseloss.ckpt"),
     }
 
     # Load all models
@@ -91,9 +88,7 @@ def main():
         model = model.half()
         model.eval()
         models[name] = model
-        print(
-            f"Loaded {name}: {model.__class__.__name__} ({model.count_parameters():,} params)"
-        )
+        print(f"Loaded {name}: {model.__class__.__name__} ({model.count_parameters():,} params)")
 
     print(f"\nLoaded {len(models)} models for comparison")
 
@@ -106,7 +101,9 @@ def main():
     # =========================================================================
     timestep = 21
     viz_slice_idx = num_slices // 2  # Use middle slice
-    slice_index = compute_index(timestep, micro_test_dataset.split, micro_test_dataset.plane, viz_slice_idx)  # Just to show usage
+    slice_index = compute_index(
+        timestep, micro_test_dataset.split, micro_test_dataset.plane, viz_slice_idx
+    )  # Just to show usage
     print(f"\nGenerating predictions for slice {viz_slice_idx}...")
 
     # Get input data
@@ -122,10 +119,7 @@ def main():
 
     # Denormalize for visualization
     micro_target_denorm = micro_test_dataset.denormalize_target(micro_target)
-    predictions_denorm = {
-        name: micro_test_dataset.denormalize_target(pred)
-        for name, pred in predictions.items()
-    }
+    predictions_denorm = {name: micro_test_dataset.denormalize_target(pred) for name, pred in predictions.items()}
 
     # =========================================================================
     # Create Comparison Figure
@@ -137,23 +131,19 @@ def main():
     fig, axes = plt.subplots(num_rows, 1, figsize=(7, 1.5 * num_rows), sharex=True, sharey=True)
 
     # Ground truth
-    target_rgb = np.clip(
-        np.transpose(micro_target_denorm[0:3].numpy(), (2, 1, 0)), 0, 1
-    ).astype(np.float32)
+    target_rgb = np.clip(np.transpose(micro_target_denorm[0:3].numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
     axes[0].imshow(target_rgb, aspect="equal", origin="lower")
     axes[0].set_title("Ground Truth")
 
     # Predictions from each model
     for idx, (name, pred_denorm) in enumerate(predictions_denorm.items()):
-        pred_rgb = np.clip(
-            np.transpose(pred_denorm[0:3].numpy(), (2, 1, 0)), 0, 1
-        ).astype(np.float32)
+        pred_rgb = np.clip(np.transpose(pred_denorm[0:3].numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
 
         # Compute MSE for this prediction
         mse = torch.nn.functional.mse_loss(predictions[name], micro_target).item()
 
         axes[idx + 1].imshow(pred_rgb, aspect="equal", origin="lower")
-        axes[idx + 1].set_title(f"{name}") #\nMSE: {mse:.6f}
+        axes[idx + 1].set_title(f"{name}")  # \nMSE: {mse:.6f}
 
     # Set common axis labels
     ylabel = fig.supylabel("Z coordinate")
@@ -207,9 +197,7 @@ def main():
         micro_target_t_denorm = micro_test_dataset.denormalize_target(micro_target_t)
 
         # Convert to RGB
-        target_rgb_t = np.clip(
-            np.transpose(micro_target_t_denorm[0:3].numpy(), (2, 1, 0)), 0, 1
-        ).astype(np.float32)
+        target_rgb_t = np.clip(np.transpose(micro_target_t_denorm[0:3].numpy(), (2, 1, 0)), 0, 1).astype(np.float32)
 
         axes2[row].imshow(target_rgb_t, aspect="equal", origin="lower")
         axes2[row].set_title(f"Timestep {timestep}")
@@ -218,7 +206,7 @@ def main():
     fig2.supylabel("Z coordinate")
     axes2[-1].set_xlabel("X coordinate")
 
-    #plt.suptitle("Microstructure Evolution")
+    # plt.suptitle("Microstructure Evolution")
     plt.tight_layout()
 
     output_path2 = "timestep_evolution_18_21.png"
@@ -250,20 +238,20 @@ def main():
         pred_np = pred_denorm[0:3].numpy()  # [3, H, W]
         error = np.mean((target_np - pred_np) ** 2, axis=0).astype(np.float32)  # [H, W]
 
-        im = axes3[idx].imshow(error.T, cmap='RdYlBu_r', aspect='equal',
-                               interpolation='nearest', origin='lower',
-                               vmin=vmin, vmax=vmax)
+        im = axes3[idx].imshow(
+            error.T, cmap="RdYlBu_r", aspect="equal", interpolation="nearest", origin="lower", vmin=vmin, vmax=vmax
+        )
         axes3[idx].set_title(f"{name}")
 
     # Set common axis labels
     fig3.supylabel("Z coordinate")
     axes3[-1].set_xlabel("X coordinate")
 
-    #fig3.suptitle("MSE Error Maps")
+    # fig3.suptitle("MSE Error Maps")
     plt.tight_layout()
 
     # Add common colorbar horizontally at the bottom
-    fig3.colorbar(im, ax=axes3, orientation='horizontal', fraction=0.05, pad=0.08, label='MSE Error')
+    fig3.colorbar(im, ax=axes3, orientation="horizontal", fraction=0.05, pad=0.08, label="MSE Error")
 
     output_path3 = "model_mse_error_maps.png"
     plt.savefig(output_path3, format="png", bbox_inches="tight")

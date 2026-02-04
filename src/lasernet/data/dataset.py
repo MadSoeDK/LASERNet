@@ -10,6 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class LaserDataset(Dataset):
     """
     Dataset for spatiotemporal prediction of temperature and microstructure fields.
@@ -40,18 +41,17 @@ class LaserDataset(Dataset):
     """
 
     def __init__(
-            self,
-            data_path: Path = Path("./data/processed/"),
-            field_type: FieldType = "temperature",
-            plane: PlaneType = "xz",
-            split: SplitType = "train",
-            sequence_length: int = 3,
-            target_offset: int = 1,
-            downsample: int = 2,
-            normalize: bool = False,
-            normalizer: Optional[DataNormalizer] = None,
-        ) -> None:
-
+        self,
+        data_path: Path = Path("./data/processed/"),
+        field_type: FieldType = "temperature",
+        plane: PlaneType = "xz",
+        split: SplitType = "train",
+        sequence_length: int = 3,
+        target_offset: int = 1,
+        downsample: int = 2,
+        normalize: bool = False,
+        normalizer: Optional[DataNormalizer] = None,
+    ) -> None:
         self.data_path = data_path
         self.field_type = field_type
         self.plane: PlaneType = plane
@@ -87,9 +87,7 @@ class LaserDataset(Dataset):
             else:
                 # Create and fit normalizer (should only be train split)
                 if split != "train":
-                    raise ValueError(
-                        "Must provide normalizer for val/test splits to prevent data leakage"
-                    )
+                    raise ValueError("Must provide normalizer for val/test splits to prevent data leakage")
                 self.normalizer = DataNormalizer(num_channels=self.num_input_channels)
                 self.normalizer.fit(self.data)
                 logger.info(f"{split} split fitted normalizer for {self.num_input_channels} channel(s)")
@@ -162,7 +160,9 @@ class LaserDataset(Dataset):
             # Load microstructure and concatenate with temperature
             micro_file = self.data_path / "microstructure.pt"
             if not micro_file.exists():
-                raise FileNotFoundError(f"Microstructure data not found at {micro_file}. Please run preprocessing.py first.")
+                raise FileNotFoundError(
+                    f"Microstructure data not found at {micro_file}. Please run preprocessing.py first."
+                )
 
             loaded_micro = torch.load(micro_file)
             micro_data = loaded_micro["data"]  # [T, 10, X, Y, Z]
@@ -270,7 +270,9 @@ class LaserDataset(Dataset):
             # Microstructure mode: target is microstructure only (first 10 channels)
             target = self.data[target_idx, :10]  # [10, H, W]
 
-        logger.debug(f"Fetched sample idx={idx}: slice_idx={slice_idx}, temporal_offset={temporal_offset}, input_indices={input_indices}, target_idx={target_idx}, input_seq shape={input_seq.shape}, target shape={target.shape}")
+        logger.debug(
+            f"Fetched sample idx={idx}: slice_idx={slice_idx}, temporal_offset={temporal_offset}, input_indices={input_indices}, target_idx={target_idx}, input_seq shape={input_seq.shape}, target shape={target.shape}"
+        )
 
         # Get temperature at target timestep (unnormalized, for model conditioning and masking)
         target_temperature = self.temperature_data[target_idx]  # [1, H, W]
@@ -334,8 +336,8 @@ class LaserDataset(Dataset):
             raise ValueError("Normalizer channel mins/maxs are not set.")
 
         # Get only the microstructure channel stats (first 10 of 11)
-        mins = self.normalizer.channel_mins[:self.num_target_channels].view(1, -1, 1, 1).to(data.device, data.dtype)
-        maxs = self.normalizer.channel_maxs[:self.num_target_channels].view(1, -1, 1, 1).to(data.device, data.dtype)
+        mins = self.normalizer.channel_mins[: self.num_target_channels].view(1, -1, 1, 1).to(data.device, data.dtype)
+        maxs = self.normalizer.channel_maxs[: self.num_target_channels].view(1, -1, 1, 1).to(data.device, data.dtype)
 
         denormalized = data * (maxs - mins) + mins
 
@@ -351,7 +353,6 @@ class LaserDataset(Dataset):
             index: Dataset index
         """
         return compute_timestep_from_index(index, self.plane, self.split)
-
 
 
 if __name__ == "__main__":

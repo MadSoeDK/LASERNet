@@ -14,12 +14,13 @@ from lasernet.data import LaserDataset
 from lasernet.models.base import BaseModel
 from lasernet.laser_types import FieldType, LossType, NetworkType, T_SOLIDUS, T_LIQUIDUS
 from lasernet.utils import get_checkpoint_path, get_loss_fn, get_loss_type, get_model
+
 # load env variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
 
 
 def train(
@@ -69,11 +70,13 @@ def train(
     # Configure checkpoint callback to save best model with fixed name for DVC
     checkpoint_callback = ModelCheckpoint(
         dirpath="models",
-        filename=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len).stem,
+        filename=get_checkpoint_path(
+            Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len
+        ).stem,
         monitor="val_loss",
         mode="min",
         save_top_k=1,
-        enable_version_counter=False
+        enable_version_counter=False,
     )
 
     # Configure early stopping to prevent overfitting
@@ -93,7 +96,9 @@ def train(
     wandb_logger = None
     if use_wandb:
         wandb_logger = WandbLogger(
-            name=get_checkpoint_path(Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len).stem,
+            name=get_checkpoint_path(
+                Path("models/"), model, get_loss_type(model.loss_fn), model.field_type, seq_len
+            ).stem,
             project=os.getenv("WANDB_PROJECT"),
             group=wandb_group,
         )
@@ -108,7 +113,7 @@ def train(
     trainer.fit(
         model,
         train_dataloaders=DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers),
-        val_dataloaders=DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        val_dataloaders=DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
     )
 
     logger.info(f"Training complete! Model saved to {checkpoint_callback.best_model_path}")
@@ -135,7 +140,13 @@ def main(
     wandb_group: str | None = None,
 ):
     """Train a model based on specified network type and field type."""
-    loss_fn = get_loss_fn(loss, T_solidus=t_solidus, T_liquidus=t_liquidus, solidification_weight=solidification_weight, global_weight=global_weight)
+    loss_fn = get_loss_fn(
+        loss,
+        T_solidus=t_solidus,
+        T_liquidus=t_liquidus,
+        solidification_weight=solidification_weight,
+        global_weight=global_weight,
+    )
 
     # Note: _Large variants have hardcoded architecture, so only pass learning_rate and loss_fn
     model_params = {
@@ -160,6 +171,7 @@ def main(
         use_wandb=use_wandb,
         wandb_group=wandb_group,
     )
+
 
 if __name__ == "__main__":
     typer.run(main)

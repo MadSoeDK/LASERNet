@@ -11,6 +11,7 @@ from lasernet.utils import AXIS_COLUMNS, MICROSTRUCTURE_COLUMNS, TEMPERATURE_COL
 
 logger = logging.getLogger(__name__)
 
+
 def _discover_csv_files(data_dir: Path, pattern: str = "Alldata_withpoints_*.csv") -> List[Path]:
     """Find and sort CSV files by timestep."""
     files = list(data_dir.glob(pattern))
@@ -97,11 +98,7 @@ def preprocess(data_dir: Path = Path("./data/raw/"), output_dir: Path = Path("./
         df = pd.read_csv(csv_file, usecols=usecols)
 
         # Filter to only include downsampled coordinates
-        df = df[
-            df["Points:0"].isin(x_coords) &
-            df["Points:1"].isin(y_coords) &
-            df["Points:2"].isin(z_coords)
-        ]
+        df = df[df["Points:0"].isin(x_coords) & df["Points:1"].isin(y_coords) & df["Points:2"].isin(z_coords)]
 
         # Map coordinates to indices
         x_idx = df["Points:0"].map(x_map).to_numpy()

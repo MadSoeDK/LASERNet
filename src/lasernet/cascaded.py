@@ -19,26 +19,28 @@ from lasernet.laser_types import PlaneType
 @dataclass
 class CascadedPredictionResult:
     """Result from a single cascaded prediction."""
+
     # Temperature
-    temp_input_seq: torch.Tensor      # [seq_len, 1, H, W]
-    temp_target: torch.Tensor         # [1, H, W]
-    temp_pred: torch.Tensor           # [1, H, W]
-    temp_mask: torch.Tensor           # [H, W]
+    temp_input_seq: torch.Tensor  # [seq_len, 1, H, W]
+    temp_target: torch.Tensor  # [1, H, W]
+    temp_pred: torch.Tensor  # [1, H, W]
+    temp_mask: torch.Tensor  # [H, W]
     # Microstructure
-    micro_input_seq: torch.Tensor     # [seq_len, 11, H, W]
-    micro_target: torch.Tensor        # [10, H, W]
-    micro_pred_cascaded: torch.Tensor # [10, H, W] - using predicted temperature
-    micro_pred_standard: torch.Tensor # [10, H, W] - using ground truth temperature
-    micro_mask: torch.Tensor          # [H, W]
+    micro_input_seq: torch.Tensor  # [seq_len, 11, H, W]
+    micro_target: torch.Tensor  # [10, H, W]
+    micro_pred_cascaded: torch.Tensor  # [10, H, W] - using predicted temperature
+    micro_pred_standard: torch.Tensor  # [10, H, W] - using ground truth temperature
+    micro_mask: torch.Tensor  # [H, W]
 
 
 @dataclass
 class AutoregressiveResult:
     """Result from multi-step autoregressive prediction."""
-    temp_predictions: List[torch.Tensor]   # List of [1, H, W]
-    temp_targets: List[torch.Tensor]       # List of [1, H, W]
+
+    temp_predictions: List[torch.Tensor]  # List of [1, H, W]
+    temp_targets: List[torch.Tensor]  # List of [1, H, W]
     micro_predictions: List[torch.Tensor]  # List of [10, H, W]
-    micro_targets: List[torch.Tensor]      # List of [10, H, W]
+    micro_targets: List[torch.Tensor]  # List of [10, H, W]
     temp_mse: List[float]
     micro_mse: List[float]
 
@@ -305,9 +307,7 @@ def autoregressive_cascaded_prediction(
 
             if temporal_offset < sequence_length:
                 # Use ground truth for initial frames
-                temp_frame, _ = load_ground_truth_frame(
-                    temp_dataset, micro_dataset, slice_idx, temporal_offset, plane
-                )
+                temp_frame, _ = load_ground_truth_frame(temp_dataset, micro_dataset, slice_idx, temporal_offset, plane)
             else:
                 # Use predicted frame
                 pred_idx = temporal_offset - sequence_length
@@ -324,9 +324,7 @@ def autoregressive_cascaded_prediction(
 
             if temporal_offset < sequence_length:
                 # Use ground truth for initial frames
-                _, micro_frame = load_ground_truth_frame(
-                    temp_dataset, micro_dataset, slice_idx, temporal_offset, plane
-                )
+                _, micro_frame = load_ground_truth_frame(temp_dataset, micro_dataset, slice_idx, temporal_offset, plane)
             else:
                 # Use predicted microstructure + temperature for this frame
                 pred_idx = temporal_offset - sequence_length
@@ -334,9 +332,7 @@ def autoregressive_cascaded_prediction(
                 temp_channel = temp_pred_buffer[pred_idx]  # [1, H, W]
 
                 # Renormalize temperature from temp normalizer to micro normalizer
-                temp_renorm = renormalize_temperature(
-                    temp_channel, temp_dataset, micro_dataset
-                )
+                temp_renorm = renormalize_temperature(temp_channel, temp_dataset, micro_dataset)
 
                 micro_frame = torch.cat([micro_channels, temp_renorm], dim=0)  # [11, H, W]
 
@@ -351,9 +347,7 @@ def autoregressive_cascaded_prediction(
         temp_pred = temp_pred[0].cpu().float()  # [1, H, W]
 
         # ===== Prepare microstructure input with predicted temperature =====
-        temp_pred_renorm = renormalize_temperature(
-            temp_pred, temp_dataset, micro_dataset
-        )
+        temp_pred_renorm = renormalize_temperature(temp_pred, temp_dataset, micro_dataset)
 
         micro_input_cascaded = micro_input_seq.clone()
         micro_input_cascaded[-1, 10:11, :, :] = temp_pred_renorm
@@ -387,8 +381,7 @@ def autoregressive_cascaded_prediction(
         results.micro_mse.append(micro_mse)
 
         if verbose:
-            print(f"  Step {step + 1}/{num_steps}: "
-                  f"Temp MSE={temp_mse:.6f}, Micro MSE={micro_mse:.6f}")
+            print(f"  Step {step + 1}/{num_steps}: " f"Temp MSE={temp_mse:.6f}, Micro MSE={micro_mse:.6f}")
 
     return results
 
@@ -454,21 +447,19 @@ def compute_cascaded_metrics(
 
         # MAE on IPF-X channels (first 3)
         if micro_mask.sum() > 0:
-            mae_cascaded = torch.abs(
-                micro_pred_cascaded_denorm[0:3][:, micro_mask] -
-                micro_target_denorm[0:3][:, micro_mask]
-            ).mean().item()
-            mae_standard = torch.abs(
-                micro_pred_standard_denorm[0:3][:, micro_mask] -
-                micro_target_denorm[0:3][:, micro_mask]
-            ).mean().item()
+            mae_cascaded = (
+                torch.abs(micro_pred_cascaded_denorm[0:3][:, micro_mask] - micro_target_denorm[0:3][:, micro_mask])
+                .mean()
+                .item()
+            )
+            mae_standard = (
+                torch.abs(micro_pred_standard_denorm[0:3][:, micro_mask] - micro_target_denorm[0:3][:, micro_mask])
+                .mean()
+                .item()
+            )
         else:
-            mae_cascaded = torch.abs(
-                micro_pred_cascaded_denorm[0:3] - micro_target_denorm[0:3]
-            ).mean().item()
-            mae_standard = torch.abs(
-                micro_pred_standard_denorm[0:3] - micro_target_denorm[0:3]
-            ).mean().item()
+            mae_cascaded = torch.abs(micro_pred_cascaded_denorm[0:3] - micro_target_denorm[0:3]).mean().item()
+            mae_standard = torch.abs(micro_pred_standard_denorm[0:3] - micro_target_denorm[0:3]).mean().item()
 
         micro_mse_cascaded_list.append(mse_cascaded)
         micro_mse_standard_list.append(mse_standard)

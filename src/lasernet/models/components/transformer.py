@@ -44,8 +44,8 @@ class PositionalEncoding2D(nn.Module):
             self.col_embed = nn.Parameter(torch.randn(max_w, d_model // 2))
         else:
             # Sinusoidal encoding
-            self.register_buffer('row_embed', self._get_sinusoidal_encoding(max_h, d_model // 2))
-            self.register_buffer('col_embed', self._get_sinusoidal_encoding(max_w, d_model // 2))
+            self.register_buffer("row_embed", self._get_sinusoidal_encoding(max_h, d_model // 2))
+            self.register_buffer("col_embed", self._get_sinusoidal_encoding(max_w, d_model // 2))
 
     def _get_sinusoidal_encoding(self, length: int, d_model: int) -> torch.Tensor:
         """Generate sinusoidal positional encoding."""
@@ -112,7 +112,7 @@ class TemporalPositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
 
-        self.register_buffer('pe', pe.unsqueeze(0))  # [1, max_len, d_model]
+        self.register_buffer("pe", pe.unsqueeze(0))  # [1, max_len, d_model]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -122,7 +122,7 @@ class TemporalPositionalEncoding(nn.Module):
         Returns:
             Sequence with positional encoding [B, seq_len, d_model]
         """
-        x = x + self.pe[:, :x.size(1)]
+        x = x + self.pe[:, : x.size(1)]
         return self.dropout(x)
 
 
@@ -158,7 +158,7 @@ class TemporalTransformerEncoder(nn.Module):
             nhead=nhead,
             dim_feedforward=dim_feedforward,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
             norm_first=True,  # Pre-norm for better training stability
         )

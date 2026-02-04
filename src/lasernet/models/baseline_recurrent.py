@@ -154,10 +154,10 @@ class BaselineConvLSTM_Large(BaselineConvLSTM):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('feature_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("feature_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -190,10 +190,10 @@ class BaselineConvLSTM_Light(BaselineConvLSTM):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('feature_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("feature_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -342,10 +342,10 @@ class BaselinePredRNN_Large(BaselinePredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('feature_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("feature_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -378,10 +378,10 @@ class BaselinePredRNN_Light(BaselinePredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('feature_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("feature_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,

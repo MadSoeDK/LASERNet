@@ -12,18 +12,22 @@ spatiotemporal field prediction in laser material processing:
 """
 
 from lasernet.models.deep_cnn_lstm import (
-    DeepCNN_LSTM, DeepCNN_LSTM_Large, DeepCNN_LSTM_Medium,
-    DeepCNN_LSTM_Shallow4L, DeepCNN_LSTM_Shallow3L
+    DeepCNN_LSTM,
+    DeepCNN_LSTM_Large,
+    DeepCNN_LSTM_Medium,
+    DeepCNN_LSTM_Shallow4L,
+    DeepCNN_LSTM_Shallow3L,
 )
 from lasernet.models.cnn_mlp import DeepCNN_MLP, DeepCNN_MLP_Medium, DeepCNN_MLP_Large
-from lasernet.models.predrnn import (
-    PredRNN, PredRNN_Large, PredRNN_Light,
-    PredRNN_Shallow4L, PredRNN_Shallow3L
-)
+from lasernet.models.predrnn import PredRNN, PredRNN_Large, PredRNN_Light, PredRNN_Shallow4L, PredRNN_Shallow3L
 from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
 from lasernet.models.baseline_recurrent import (
-    BaselineConvLSTM, BaselineConvLSTM_Large, BaselineConvLSTM_Light,
-    BaselinePredRNN, BaselinePredRNN_Large, BaselinePredRNN_Light,
+    BaselineConvLSTM,
+    BaselineConvLSTM_Large,
+    BaselineConvLSTM_Light,
+    BaselinePredRNN,
+    BaselinePredRNN_Large,
+    BaselinePredRNN_Light,
 )
 from lasernet.models.base import BaseModel
 

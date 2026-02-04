@@ -161,7 +161,7 @@ class DeepCNN_LSTM(BaseModel):
             skip = skips[skip_idx]
 
             # Upsample to match skip connection size
-            x = F.interpolate(x, size=skip.shape[-2:], mode='bilinear', align_corners=False)
+            x = F.interpolate(x, size=skip.shape[-2:], mode="bilinear", align_corners=False)
             x = torch.cat([x, skip], dim=1)
             x = decoder(x)
 
@@ -170,7 +170,7 @@ class DeepCNN_LSTM(BaseModel):
 
         # Ensure exact output dimensions match input
         if out.shape[-2:] != (orig_h, orig_w):
-            out = F.interpolate(out, size=(orig_h, orig_w), mode='bilinear', align_corners=False)
+            out = F.interpolate(out, size=(orig_h, orig_w), mode="bilinear", align_corners=False)
 
         return out
 
@@ -193,11 +193,10 @@ class DeepCNN_LSTM_Large(DeepCNN_LSTM):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
-
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -230,12 +229,11 @@ class DeepCNN_LSTM_Medium(DeepCNN_LSTM):
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
     ):
-
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
         super().__init__(
             field_type=field_type,
             input_channels=input_channels,
@@ -268,10 +266,10 @@ class DeepCNN_LSTM_Shallow4L(DeepCNN_LSTM):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -305,10 +303,10 @@ class DeepCNN_LSTM_Shallow3L(DeepCNN_LSTM):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -342,10 +340,10 @@ class DeepCNN_LSTM_Shallow2L(DeepCNN_LSTM):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('lstm_hidden', None)
-        kwargs.pop('lstm_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("lstm_hidden", None)
+        kwargs.pop("lstm_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,

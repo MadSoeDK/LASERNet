@@ -8,18 +8,28 @@ from torch.nn import MSELoss, L1Loss
 from lasernet.laser_types import FieldType, PlaneType, SplitType, NetworkType, LossType
 from lasernet.models.base import BaseModel
 from lasernet.models.deep_cnn_lstm import (
-    DeepCNN_LSTM_Large, DeepCNN_LSTM_Medium,
-    DeepCNN_LSTM_Shallow4L, DeepCNN_LSTM_Shallow3L,
-    DeepCNN_LSTM_Shallow2L
+    DeepCNN_LSTM_Large,
+    DeepCNN_LSTM_Medium,
+    DeepCNN_LSTM_Shallow4L,
+    DeepCNN_LSTM_Shallow3L,
+    DeepCNN_LSTM_Shallow2L,
 )
 from lasernet.models.predrnn import (
-    PredRNN_Large, PredRNN_Medium, PredRNN_Light,
-    PredRNN_Shallow4L, PredRNN_Shallow3L, PredRNN_Shallow2L
+    PredRNN_Large,
+    PredRNN_Medium,
+    PredRNN_Light,
+    PredRNN_Shallow4L,
+    PredRNN_Shallow3L,
+    PredRNN_Shallow2L,
 )
 from lasernet.models.mlp import MLP, MLP_Large, MLP_Light
 from lasernet.models.baseline_recurrent import (
-    BaselineConvLSTM, BaselineConvLSTM_Large, BaselineConvLSTM_Light,
-    BaselinePredRNN, BaselinePredRNN_Large, BaselinePredRNN_Light
+    BaselineConvLSTM,
+    BaselineConvLSTM_Large,
+    BaselineConvLSTM_Light,
+    BaselinePredRNN,
+    BaselinePredRNN_Large,
+    BaselinePredRNN_Light,
 )
 from lasernet.models.cnn_mlp import DeepCNN_MLP_Medium, DeepCNN_MLP_Large
 
@@ -28,9 +38,15 @@ from lasernet.models.cnn_mlp import DeepCNN_MLP_Medium, DeepCNN_MLP_Large
 AXIS_COLUMNS = {"x": "Points:0", "y": "Points:1", "z": "Points:2"}
 TEMPERATURE_COLUMNS = ("T",)
 MICROSTRUCTURE_COLUMNS = (
-    "ipf_x:0", "ipf_x:1", "ipf_x:2",
-    "ipf_y:0", "ipf_y:1", "ipf_y:2",
-    "ipf_z:0", "ipf_z:1", "ipf_z:2",
+    "ipf_x:0",
+    "ipf_x:1",
+    "ipf_x:2",
+    "ipf_y:0",
+    "ipf_y:1",
+    "ipf_y:2",
+    "ipf_z:0",
+    "ipf_z:1",
+    "ipf_z:2",
     "ori_inds",
 )
 TIMESTEP_PATTERN = re.compile(r"(\d+)(?!.*\d)")
@@ -38,6 +54,7 @@ TIMESTEP_PATTERN = re.compile(r"(\d+)(?!.*\d)")
 TRAIN_SPLIT_FRACTION = 0.5
 VAL_SPLIT_FRACTION = 0.25
 TOTAL_TIMESTEPS = 25
+
 
 def compute_split_indices(
     total_size: int,
@@ -56,10 +73,10 @@ def compute_split_indices(
 
 
 def compute_index(
-        timestep: int,
-        split: SplitType,
-        plane: PlaneType,
-        slice_index: int,
+    timestep: int,
+    split: SplitType,
+    plane: PlaneType,
+    slice_index: int,
 ) -> int:
     """
     Compute dataset index based on timestep, split and slice index.
@@ -113,9 +130,9 @@ def compute_index(
 
 
 def compute_timestep_from_index(
-        index: int,
-        plane: PlaneType = "xz",
-        split: SplitType = "train",
+    index: int,
+    plane: PlaneType = "xz",
+    split: SplitType = "train",
 ) -> int:
     """
     Compute global timestep from dataset index, plane, and split.
@@ -147,6 +164,7 @@ def compute_timestep_from_index(
     relative_timestep = index // SLICES_PER_TIMESTEP
     return split_start + relative_timestep
 
+
 def get_num_of_slices(plane: PlaneType) -> int:
     """Return number of slices for given plane."""
     if plane == "xy":
@@ -158,12 +176,14 @@ def get_num_of_slices(plane: PlaneType) -> int:
     else:
         raise ValueError(f"Invalid plane: {plane}")
 
+
 def find_file(dir: Path, pattern: str) -> Path:
     """Find checkpoint file in directory matching pattern."""
     for file in dir.iterdir():
         if re.match(pattern, file.name):
             return file
     raise FileNotFoundError(f"No file matching {pattern} in {dir}")
+
 
 def loss_name_from_type(loss_str: LossType) -> str:
     """Convert string to LossType."""
@@ -175,7 +195,8 @@ def loss_name_from_type(loss_str: LossType) -> str:
         return CombinedLoss.__name__.lower()
     else:
         raise ValueError(f"Unknown loss type: {loss_str}")
-    
+
+
 def get_model(field_type: FieldType, network: NetworkType, **kwargs):
     """Return model class based on field type and network type."""
     # Set input_channels and output_channels based on field_type
@@ -193,53 +214,98 @@ def get_model(field_type: FieldType, network: NetworkType, **kwargs):
         raise ValueError(f"Unknown field type: {field_type}")
 
     if network == "deep_cnn_lstm_large":
-        return DeepCNN_LSTM_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_LSTM_Large(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "deep_cnn_lstm_medium":
-        return DeepCNN_LSTM_Medium(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_LSTM_Medium(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "deep_cnn_lstm_shallow4l":
-        return DeepCNN_LSTM_Shallow4L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_LSTM_Shallow4L(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "deep_cnn_lstm_shallow3l":
-        return DeepCNN_LSTM_Shallow3L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_LSTM_Shallow3L(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "deep_cnn_lstm_shallow2l":
-        return DeepCNN_LSTM_Shallow2L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_LSTM_Shallow2L(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "predrnn_large":
-        return PredRNN_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return PredRNN_Large(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "predrnn_medium":
-        return PredRNN_Medium(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return PredRNN_Medium(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "predrnn_light":
-        return PredRNN_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return PredRNN_Light(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "predrnn_shallow4l":
-        return PredRNN_Shallow4L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return PredRNN_Shallow4L(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "predrnn_shallow3l":
-        return PredRNN_Shallow3L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return PredRNN_Shallow3L(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "predrnn_shallow2l":
-        return PredRNN_Shallow2L(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return PredRNN_Shallow2L(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "mlp":
         return MLP(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
     elif network == "mlp_large":
-        return MLP_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return MLP_Large(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "mlp_light":
-        return MLP_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return MLP_Light(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "base_convlstm":
-        return BaselineConvLSTM(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return BaselineConvLSTM(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "base_convlstm_large":
-        return BaselineConvLSTM_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return BaselineConvLSTM_Large(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "base_convlstm_light":
-        return BaselineConvLSTM_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return BaselineConvLSTM_Light(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "base_predrnn":
-        return BaselinePredRNN(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return BaselinePredRNN(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "base_predrnn_large":
-        return BaselinePredRNN_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return BaselinePredRNN_Large(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "base_predrnn_light":
-        return BaselinePredRNN_Light(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return BaselinePredRNN_Light(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "cnn_mlp_medium":
-        return DeepCNN_MLP_Medium(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_MLP_Medium(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     elif network == "cnn_mlp_large":
-        return DeepCNN_MLP_Large(field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs)
+        return DeepCNN_MLP_Large(
+            field_type=field_type, input_channels=input_channels, output_channels=output_channels, **kwargs
+        )
     else:
         raise ValueError(f"Unsupported network type: {network}")
-    
-def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field_type: FieldType, loss_type: LossType, seq_len: int | None = None):
+
+
+def get_model_from_checkpoint(
+    checkpoint_path: Path, network: NetworkType, field_type: FieldType, loss_type: LossType, seq_len: int | None = None
+):
     def _get_ckpt(model_class):
         return f"{checkpoint_path}/" + get_model_filename(model_class, loss_type, field_type, seq_len) + ".ckpt"
 
@@ -248,11 +314,17 @@ def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field
     elif network == "deep_cnn_lstm_medium":
         model_class = DeepCNN_LSTM_Medium.load_from_checkpoint(_get_ckpt(DeepCNN_LSTM_Medium(field_type=field_type)))
     elif network == "deep_cnn_lstm_shallow4l":
-        model_class = DeepCNN_LSTM_Shallow4L.load_from_checkpoint(_get_ckpt(DeepCNN_LSTM_Shallow4L(field_type=field_type)))
+        model_class = DeepCNN_LSTM_Shallow4L.load_from_checkpoint(
+            _get_ckpt(DeepCNN_LSTM_Shallow4L(field_type=field_type))
+        )
     elif network == "deep_cnn_lstm_shallow3l":
-        model_class = DeepCNN_LSTM_Shallow3L.load_from_checkpoint(_get_ckpt(DeepCNN_LSTM_Shallow3L(field_type=field_type)))
+        model_class = DeepCNN_LSTM_Shallow3L.load_from_checkpoint(
+            _get_ckpt(DeepCNN_LSTM_Shallow3L(field_type=field_type))
+        )
     elif network == "deep_cnn_lstm_shallow2l":
-        model_class = DeepCNN_LSTM_Shallow2L.load_from_checkpoint(_get_ckpt(DeepCNN_LSTM_Shallow2L(field_type=field_type)))
+        model_class = DeepCNN_LSTM_Shallow2L.load_from_checkpoint(
+            _get_ckpt(DeepCNN_LSTM_Shallow2L(field_type=field_type))
+        )
     elif network == "predrnn_large":
         model_class = PredRNN_Large.load_from_checkpoint(_get_ckpt(PredRNN_Large(field_type=field_type)))
     elif network == "predrnn_medium":
@@ -274,22 +346,35 @@ def get_model_from_checkpoint(checkpoint_path: Path, network: NetworkType, field
     elif network == "base_convlstm":
         model_class = BaselineConvLSTM.load_from_checkpoint(_get_ckpt(BaselineConvLSTM(field_type=field_type)))
     elif network == "base_convlstm_large":
-        model_class = BaselineConvLSTM_Large.load_from_checkpoint(_get_ckpt(BaselineConvLSTM_Large(field_type=field_type)))
+        model_class = BaselineConvLSTM_Large.load_from_checkpoint(
+            _get_ckpt(BaselineConvLSTM_Large(field_type=field_type))
+        )
     elif network == "base_convlstm_light":
-        model_class = BaselineConvLSTM_Light.load_from_checkpoint(_get_ckpt(BaselineConvLSTM_Light(field_type=field_type)))
+        model_class = BaselineConvLSTM_Light.load_from_checkpoint(
+            _get_ckpt(BaselineConvLSTM_Light(field_type=field_type))
+        )
     elif network == "base_predrnn":
         model_class = BaselinePredRNN.load_from_checkpoint(_get_ckpt(BaselinePredRNN(field_type=field_type)))
     elif network == "base_predrnn_large":
-        model_class = BaselinePredRNN_Large.load_from_checkpoint(_get_ckpt(BaselinePredRNN_Large(field_type=field_type)))
+        model_class = BaselinePredRNN_Large.load_from_checkpoint(
+            _get_ckpt(BaselinePredRNN_Large(field_type=field_type))
+        )
     elif network == "base_predrnn_light":
-        model_class = BaselinePredRNN_Light.load_from_checkpoint(_get_ckpt(BaselinePredRNN_Light(field_type=field_type)))
+        model_class = BaselinePredRNN_Light.load_from_checkpoint(
+            _get_ckpt(BaselinePredRNN_Light(field_type=field_type))
+        )
     elif network == "cnn_mlp_medium":
-        model_class = DeepCNN_MLP_Medium.load_from_checkpoint(_get_ckpt(DeepCNN_MLP_Medium(field_type=field_type)), strict=False)
+        model_class = DeepCNN_MLP_Medium.load_from_checkpoint(
+            _get_ckpt(DeepCNN_MLP_Medium(field_type=field_type)), strict=False
+        )
     elif network == "cnn_mlp_large":
-        model_class = DeepCNN_MLP_Large.load_from_checkpoint(_get_ckpt(DeepCNN_MLP_Large(field_type=field_type)), strict=False)
+        model_class = DeepCNN_MLP_Large.load_from_checkpoint(
+            _get_ckpt(DeepCNN_MLP_Large(field_type=field_type)), strict=False
+        )
     else:
         raise ValueError(f"Unsupported network type: {network}")
     return model_class
+
 
 def get_loss_fn(loss_type: LossType, **kwargs) -> MSELoss | CombinedLoss:
     """Return loss function based on loss type."""
@@ -299,7 +384,8 @@ def get_loss_fn(loss_type: LossType, **kwargs) -> MSELoss | CombinedLoss:
         return CombinedLoss(**kwargs)
     else:
         raise ValueError(f"Unsupported loss type: {loss_type}")
-    
+
+
 def get_loss_type(loss_fn: nn.Module) -> LossType:
     """Return loss type string based on loss function instance."""
     if isinstance(loss_fn, MSELoss):
@@ -312,33 +398,33 @@ def get_loss_type(loss_fn: nn.Module) -> LossType:
 
 # Model class mapping for load_model_from_path
 MODEL_CLASSES = {
-    'deepcnn_lstm_large': DeepCNN_LSTM_Large,
-    'deepcnn_lstm_medium': DeepCNN_LSTM_Medium,
-    'deepcnn_lstm_shallow4l': DeepCNN_LSTM_Shallow4L,
-    'deepcnn_lstm_shallow3l': DeepCNN_LSTM_Shallow3L,
-    'deepcnn_lstm_shallow2l': DeepCNN_LSTM_Shallow2L,
-    'deep_cnn_lstm_shallow2l': DeepCNN_LSTM_Shallow2L,
-    'predrnn_large': PredRNN_Large,
-    'predrnn_medium': PredRNN_Medium,
-    'predrnn_light': PredRNN_Light,
-    'predrnn_shallow4l': PredRNN_Shallow4L,
-    'predrnn_shallow3l': PredRNN_Shallow3L,
-    'predrnn_shallow2l': PredRNN_Shallow2L,
-    'mlp': MLP,
-    'mlp_large': MLP_Large,
-    'mlp_light': MLP_Light,
-    'baselineconvlstm': BaselineConvLSTM,
-    'base_convlstm': BaselineConvLSTM,
-    'base_convlstm_large': BaselineConvLSTM_Large,
-    'baselineconvlstm_light': BaselineConvLSTM_Light,
-    'base_convlstm_light': BaselineConvLSTM_Light,
-    'baselinepredrnn': BaselinePredRNN,
-    'base_predrnn': BaselinePredRNN,
-    'base_predrnn_large': BaselinePredRNN_Large,
-    'baselinepredrnn_light': BaselinePredRNN_Light,
-    'base_predrnn_light': BaselinePredRNN_Light,
-    'deepcnn_mlp_medium': DeepCNN_MLP_Medium,
-    'deepcnn_mlp_large': DeepCNN_MLP_Large,
+    "deepcnn_lstm_large": DeepCNN_LSTM_Large,
+    "deepcnn_lstm_medium": DeepCNN_LSTM_Medium,
+    "deepcnn_lstm_shallow4l": DeepCNN_LSTM_Shallow4L,
+    "deepcnn_lstm_shallow3l": DeepCNN_LSTM_Shallow3L,
+    "deepcnn_lstm_shallow2l": DeepCNN_LSTM_Shallow2L,
+    "deep_cnn_lstm_shallow2l": DeepCNN_LSTM_Shallow2L,
+    "predrnn_large": PredRNN_Large,
+    "predrnn_medium": PredRNN_Medium,
+    "predrnn_light": PredRNN_Light,
+    "predrnn_shallow4l": PredRNN_Shallow4L,
+    "predrnn_shallow3l": PredRNN_Shallow3L,
+    "predrnn_shallow2l": PredRNN_Shallow2L,
+    "mlp": MLP,
+    "mlp_large": MLP_Large,
+    "mlp_light": MLP_Light,
+    "baselineconvlstm": BaselineConvLSTM,
+    "base_convlstm": BaselineConvLSTM,
+    "base_convlstm_large": BaselineConvLSTM_Large,
+    "baselineconvlstm_light": BaselineConvLSTM_Light,
+    "base_convlstm_light": BaselineConvLSTM_Light,
+    "baselinepredrnn": BaselinePredRNN,
+    "base_predrnn": BaselinePredRNN,
+    "base_predrnn_large": BaselinePredRNN_Large,
+    "baselinepredrnn_light": BaselinePredRNN_Light,
+    "base_predrnn_light": BaselinePredRNN_Light,
+    "deepcnn_mlp_medium": DeepCNN_MLP_Medium,
+    "deepcnn_mlp_large": DeepCNN_MLP_Large,
 }
 
 
@@ -357,11 +443,11 @@ def load_model_from_path(checkpoint_path: Path) -> BaseModel:
     """
     # Parse filename: best_predrnn_large_temperature_mseloss.ckpt
     stem = checkpoint_path.stem  # best_predrnn_large_temperature_mseloss
-    parts = stem.split('_')
+    parts = stem.split("_")
     # parts = ['best', 'predrnn', 'large', 'temperature', 'mseloss']
 
     # Find field_type index (temperature or microstructure)
-    field_types = ('temperature', 'microstructure')
+    field_types = ("temperature", "microstructure")
     field_type_idx = None
     for i, p in enumerate(parts):
         if p in field_types:
@@ -372,13 +458,15 @@ def load_model_from_path(checkpoint_path: Path) -> BaseModel:
         raise ValueError(f"Could not find field type in checkpoint name: {checkpoint_path.name}")
 
     # Extract model name (everything between 'best_' and field_type)
-    model_name = '_'.join(parts[1:field_type_idx])  # e.g., 'predrnn_large'
+    model_name = "_".join(parts[1:field_type_idx])  # e.g., 'predrnn_large'
     field_type: FieldType = parts[field_type_idx]  # type: ignore
 
     # Get model class
     if model_name not in MODEL_CLASSES:
-        raise ValueError(f"Unknown model name '{model_name}' from checkpoint: {checkpoint_path.name}. "
-                         f"Available models: {list(MODEL_CLASSES.keys())}")
+        raise ValueError(
+            f"Unknown model name '{model_name}' from checkpoint: {checkpoint_path.name}. "
+            f"Available models: {list(MODEL_CLASSES.keys())}"
+        )
 
     model_class = MODEL_CLASSES[model_name]
 
@@ -401,10 +489,14 @@ def load_model_from_path(checkpoint_path: Path) -> BaseModel:
     )
 
     return model
-    
-def get_checkpoint_path(checkpoint_dir: Path, model: BaseModel, loss: LossType, field_type: FieldType, seq_len: int | None = None) -> Path:
+
+
+def get_checkpoint_path(
+    checkpoint_dir: Path, model: BaseModel, loss: LossType, field_type: FieldType, seq_len: int | None = None
+) -> Path:
     """Construct checkpoint path based on model and loss type."""
     return checkpoint_dir / (get_model_filename(model, loss, field_type, seq_len) + ".ckpt")
+
 
 def get_model_filename(model: BaseModel, loss: LossType, field_type: FieldType, seq_len: int | None = None) -> str:
     """Construct model filename based on model and loss type."""

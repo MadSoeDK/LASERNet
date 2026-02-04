@@ -35,7 +35,7 @@ def build_cli_args(config: dict, extra_args: dict = None) -> list:
         config = {**config, **extra_args}
 
     for key, value in config.items():
-        cli_key = key.replace('_', '-')
+        cli_key = key.replace("_", "-")
         if isinstance(value, bool):
             if value:
                 args.append(f"--{cli_key}")
@@ -58,10 +58,7 @@ def setup_experiment_logger(config_path: Path) -> logging.Logger:
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.INFO)
 
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     file_handler.setFormatter(formatter)
 
     if not exp_logger.handlers:
@@ -75,7 +72,7 @@ def train_experiment(config_path: Path, wandb_group: str | None = None):
     exp_logger = setup_experiment_logger(config_path)
     exp_logger.info(f"Starting training: {config_path}")
 
-    with open(config_path, 'r') as f:
+    with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
     if wandb_group:
@@ -98,24 +95,28 @@ def eval_and_predict_experiment(config_path: Path):
     exp_logger = setup_experiment_logger(config_path)
     exp_logger.info(f"Starting eval & predict: {config_path}")
 
-    with open(config_path, 'r') as f:
+    with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
-    eval_args = build_cli_args({
-        "network": config["network"],
-        "field_type": config["field_type"],
-        "loss": config.get("loss", "mse"),
-        "num_workers": config.get("num_workers", 0),
-        "batch_size": config.get("batch_size", 16),
-        "seq_len": config.get("seq_len", 3),
-    })
-    predict_args = build_cli_args({
-        "network": config["network"],
-        "field_type": config["field_type"],
-        "loss": config.get("loss", "mse"),
-        "timestep": 18,
-        "seq_len": config.get("seq_len", 3),
-    })
+    eval_args = build_cli_args(
+        {
+            "network": config["network"],
+            "field_type": config["field_type"],
+            "loss": config.get("loss", "mse"),
+            "num_workers": config.get("num_workers", 0),
+            "batch_size": config.get("batch_size", 16),
+            "seq_len": config.get("seq_len", 3),
+        }
+    )
+    predict_args = build_cli_args(
+        {
+            "network": config["network"],
+            "field_type": config["field_type"],
+            "loss": config.get("loss", "mse"),
+            "timestep": 18,
+            "seq_len": config.get("seq_len", 3),
+        }
+    )
 
     commands = [
         ["uv", "run", "src/lasernet/evaluate.py"] + eval_args,
@@ -154,8 +155,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(train_experiment, Path(exp_config), wandb_group): exp_config
-            for exp_config in EXPERIMENTS
+            executor.submit(train_experiment, Path(exp_config), wandb_group): exp_config for exp_config in EXPERIMENTS
         }
 
         for future in as_completed(futures):

@@ -69,7 +69,7 @@ class AttentionGate(nn.Module):
         """
         # Ensure spatial dimensions match (g may need upsampling)
         if g.shape[-2:] != x.shape[-2:]:
-            g = F.interpolate(g, size=x.shape[-2:], mode='bilinear', align_corners=False)
+            g = F.interpolate(g, size=x.shape[-2:], mode="bilinear", align_corners=False)
 
         g1 = self.W_g(g)
         x1 = self.W_x(x)
@@ -120,7 +120,7 @@ class SelfAttention2D(nn.Module):
 
         # Compute queries, keys, values
         q = self.query(x).view(batch_size, -1, H * W)  # [B, C', N]
-        k = self.key(x).view(batch_size, -1, H * W)    # [B, C', N]
+        k = self.key(x).view(batch_size, -1, H * W)  # [B, C', N]
         v = self.value(x).view(batch_size, -1, H * W)  # [B, C, N]
 
         # Attention scores
@@ -291,7 +291,7 @@ class MultiHeadAttention2D(nn.Module):
 
         self.num_heads = num_heads
         self.head_dim = in_channels // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
 
         self.qkv = nn.Conv2d(in_channels, 3 * in_channels, kernel_size=1, bias=False)
         self.proj = nn.Conv2d(in_channels, in_channels, kernel_size=1)

@@ -181,23 +181,27 @@ class PredRNNStack(nn.Module):
         self.num_layers = num_layers
 
         # Create ST-LSTM cells for each layer
-        self.cells = nn.ModuleList([
-            SpatiotemporalLSTMCell(
-                input_dim=input_dim if i == 0 else hidden_dim,
-                hidden_dim=hidden_dim,
-                kernel_size=kernel_size,
-            )
-            for i in range(num_layers)
-        ])
+        self.cells = nn.ModuleList(
+            [
+                SpatiotemporalLSTMCell(
+                    input_dim=input_dim if i == 0 else hidden_dim,
+                    hidden_dim=hidden_dim,
+                    kernel_size=kernel_size,
+                )
+                for i in range(num_layers)
+            ]
+        )
 
         # Optional dropout between layers
         self.dropout = nn.Dropout2d(dropout) if dropout > 0 else None
 
         # Layer normalization for stability
-        self.layer_norms = nn.ModuleList([
-            nn.GroupNorm(1, hidden_dim)  # Instance norm equivalent
-            for _ in range(num_layers)
-        ])
+        self.layer_norms = nn.ModuleList(
+            [
+                nn.GroupNorm(1, hidden_dim)  # Instance norm equivalent
+                for _ in range(num_layers)
+            ]
+        )
 
     def forward(
         self,
@@ -222,10 +226,14 @@ class PredRNNStack(nn.Module):
         dtype = x.dtype
 
         # Initialize hidden states for all layers
-        h = [torch.zeros(batch_size, self.hidden_dim, height, width, device=device, dtype=dtype)
-             for _ in range(self.num_layers)]
-        c = [torch.zeros(batch_size, self.hidden_dim, height, width, device=device, dtype=dtype)
-             for _ in range(self.num_layers)]
+        h = [
+            torch.zeros(batch_size, self.hidden_dim, height, width, device=device, dtype=dtype)
+            for _ in range(self.num_layers)
+        ]
+        c = [
+            torch.zeros(batch_size, self.hidden_dim, height, width, device=device, dtype=dtype)
+            for _ in range(self.num_layers)
+        ]
 
         # Initialize spatiotemporal memory (zigzag: starts at bottom layer)
         m = torch.zeros(batch_size, self.hidden_dim, height, width, device=device, dtype=dtype)
@@ -350,9 +358,7 @@ class PredRNN(BaseModel):
             skip_ch = hidden_channels[i]
             out_ch = hidden_channels[i]
 
-            self.decoders.append(
-                DoubleConvBlock(prev_ch + skip_ch, out_ch, dropout)
-            )
+            self.decoders.append(DoubleConvBlock(prev_ch + skip_ch, out_ch, dropout))
             prev_ch = out_ch
 
         # ===== OUTPUT =====
@@ -416,7 +422,7 @@ class PredRNN(BaseModel):
             skip = skips[skip_idx]
 
             # Upsample
-            x = F.interpolate(x, size=skip.shape[-2:], mode='bilinear', align_corners=False)
+            x = F.interpolate(x, size=skip.shape[-2:], mode="bilinear", align_corners=False)
 
             # Concatenate skip connection
             x = torch.cat([x, skip], dim=1)
@@ -427,7 +433,7 @@ class PredRNN(BaseModel):
 
         # Ensure exact output dimensions
         if out.shape[-2:] != (orig_h, orig_w):
-            out = F.interpolate(out, size=(orig_h, orig_w), mode='bilinear', align_corners=False)
+            out = F.interpolate(out, size=(orig_h, orig_w), mode="bilinear", align_corners=False)
 
         return out
 
@@ -448,10 +454,10 @@ class PredRNN_Large(PredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -483,10 +489,10 @@ class PredRNN_Medium(PredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -518,10 +524,10 @@ class PredRNN_Light(PredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -555,10 +561,10 @@ class PredRNN_Shallow4L(PredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -592,10 +598,10 @@ class PredRNN_Shallow3L(PredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -629,10 +635,10 @@ class PredRNN_Shallow2L(PredRNN):
         **kwargs,
     ):
         # Remove params that we're overriding
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('predrnn_hidden', None)
-        kwargs.pop('predrnn_layers', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("predrnn_hidden", None)
+        kwargs.pop("predrnn_layers", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,

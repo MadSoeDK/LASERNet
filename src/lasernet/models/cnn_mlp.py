@@ -124,12 +124,14 @@ class DeepCNN_MLP(BaseModel):
         prev_dim = input_size
 
         for hidden_dim in self.mlp_hidden:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.BatchNorm1d(hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Dropout(self.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.ReLU(inplace=True),
+                    nn.Dropout(self.dropout),
+                ]
+            )
             prev_dim = hidden_dim
 
         layers.append(nn.Linear(prev_dim, output_size))
@@ -146,42 +148,43 @@ class DeepCNN_MLP(BaseModel):
     def load_state_dict(self, state_dict, strict=True):
         """
         Custom load_state_dict to handle dynamic MLP building.
-        
+
         When loading from checkpoint, we need to build the MLP first
         before loading its weights since it's created dynamically.
         """
         # Check if MLP weights exist in state_dict
-        mlp_keys = [k for k in state_dict.keys() if k.startswith('mlp.')]
-        
+        mlp_keys = [k for k in state_dict.keys() if k.startswith("mlp.")]
+
         if mlp_keys and self.mlp is None:
             # Extract MLP dimensions from state_dict to build the MLP
             # The first linear layer's weight shape tells us input/output dims
-            first_linear_weight = state_dict.get('mlp.0.weight')
+            first_linear_weight = state_dict.get("mlp.0.weight")
             if first_linear_weight is not None:
                 mlp_input_size = first_linear_weight.shape[1]
-                
+
                 # Calculate bottleneck dimensions from input size
                 # input_size = seq_len * channels * h * w
                 # We need to infer these from the saved weights
                 # For now, we'll extract from a typical checkpoint pattern
-                
+
                 # Find the last linear layer to get output size
-                max_mlp_idx = max([int(k.split('.')[1]) for k in mlp_keys if k.split('.')[1].isdigit()])
-                last_linear_weight = state_dict.get(f'mlp.{max_mlp_idx}.weight')
-                
+                max_mlp_idx = max([int(k.split(".")[1]) for k in mlp_keys if k.split(".")[1].isdigit()])
+                last_linear_weight = state_dict.get(f"mlp.{max_mlp_idx}.weight")
+
                 if last_linear_weight is not None:
                     output_size = last_linear_weight.shape[0]
                     # output_size = channels * h * w
                     # Infer h and w from output_size and bottleneck_channels
                     spatial_size = output_size // self.bottleneck_channels
-                    
+
                     # Assuming square or typical aspect ratio, calculate h and w
                     # This is a heuristic - adjust based on your typical dimensions
                     # Common pattern: h * w could be 3*15=45 or 6*30=180, etc.
                     import math
+
                     h = int(math.sqrt(spatial_size))
                     w = spatial_size // h
-                    
+
                     # Verify and adjust if needed
                     if h * w != spatial_size:
                         # Try common aspect ratios
@@ -191,13 +194,13 @@ class DeepCNN_MLP(BaseModel):
                                 if test_h * test_w == spatial_size:
                                     h, w = test_h, test_w
                                     break
-                    
+
                     # Calculate seq_len from input_size
                     seq_len = mlp_input_size // (self.bottleneck_channels * h * w)
-                    
+
                     # Build the MLP with inferred dimensions
                     self._build_mlp(seq_len, h, w)
-        
+
         # Now load the state dict
         return super().load_state_dict(state_dict, strict=strict)
 
@@ -225,20 +228,20 @@ class DeepCNN_MLP(BaseModel):
             x = seq[:, t]  # [B, C, H, W]
 
             # Encoder path
-            e1 = self.enc1(x)      # [B, ch[0], H, W]
-            p1 = self.pool(e1)     # [B, ch[0], H/2, W/2]
+            e1 = self.enc1(x)  # [B, ch[0], H, W]
+            p1 = self.pool(e1)  # [B, ch[0], H/2, W/2]
 
-            e2 = self.enc2(p1)     # [B, ch[1], H/2, W/2]
-            p2 = self.pool(e2)     # [B, ch[1], H/4, W/4]
+            e2 = self.enc2(p1)  # [B, ch[1], H/2, W/2]
+            p2 = self.pool(e2)  # [B, ch[1], H/4, W/4]
 
-            e3 = self.enc3(p2)     # [B, ch[2], H/4, W/4]
-            p3 = self.pool(e3)     # [B, ch[2], H/8, W/8]
+            e3 = self.enc3(p2)  # [B, ch[2], H/4, W/4]
+            p3 = self.pool(e3)  # [B, ch[2], H/8, W/8]
 
-            e4 = self.enc4(p3)     # [B, ch[3], H/8, W/8]
-            p4 = self.pool(e4)     # [B, ch[3], H/16, W/16]
+            e4 = self.enc4(p3)  # [B, ch[3], H/8, W/8]
+            p4 = self.pool(e4)  # [B, ch[3], H/16, W/16]
 
-            e5 = self.enc5(p4)     # [B, ch[4], H/16, W/16]
-            p5 = self.pool(e5)     # [B, ch[4], H/32, W/32]
+            e5 = self.enc5(p4)  # [B, ch[4], H/16, W/16]
+            p5 = self.pool(e5)  # [B, ch[4], H/32, W/32]
 
             encoded_frames.append(p5)
             skip_e1.append(e1)
@@ -261,8 +264,7 @@ class DeepCNN_MLP(BaseModel):
         mlp_out = self.mlp(mlp_input)  # [B, C * H * W]
 
         # Reshape back to spatial: [B, C, H, W]
-        mlp_out = mlp_out.reshape(batch_size, self.bottleneck_channels,
-                                   self._bottleneck_h, self._bottleneck_w)
+        mlp_out = mlp_out.reshape(batch_size, self.bottleneck_channels, self._bottleneck_h, self._bottleneck_w)
 
         # Use last frame's skip connections
         e1 = skip_e1[-1]
@@ -273,27 +275,27 @@ class DeepCNN_MLP(BaseModel):
 
         # Decoder path with skip connections
         # dec5: H/32 → H/16
-        d5 = F.interpolate(mlp_out, size=e5.shape[-2:], mode='bilinear', align_corners=False)
+        d5 = F.interpolate(mlp_out, size=e5.shape[-2:], mode="bilinear", align_corners=False)
         d5 = torch.cat([d5, e5], dim=1)
         d5 = self.dec5(d5)
 
         # dec4: H/16 → H/8
-        d4 = F.interpolate(d5, size=e4.shape[-2:], mode='bilinear', align_corners=False)
+        d4 = F.interpolate(d5, size=e4.shape[-2:], mode="bilinear", align_corners=False)
         d4 = torch.cat([d4, e4], dim=1)
         d4 = self.dec4(d4)
 
         # dec3: H/8 → H/4
-        d3 = F.interpolate(d4, size=e3.shape[-2:], mode='bilinear', align_corners=False)
+        d3 = F.interpolate(d4, size=e3.shape[-2:], mode="bilinear", align_corners=False)
         d3 = torch.cat([d3, e3], dim=1)
         d3 = self.dec3(d3)
 
         # dec2: H/4 → H/2
-        d2 = F.interpolate(d3, size=e2.shape[-2:], mode='bilinear', align_corners=False)
+        d2 = F.interpolate(d3, size=e2.shape[-2:], mode="bilinear", align_corners=False)
         d2 = torch.cat([d2, e2], dim=1)
         d2 = self.dec2(d2)
 
         # dec1: H/2 → H
-        d1 = F.interpolate(d2, size=e1.shape[-2:], mode='bilinear', align_corners=False)
+        d1 = F.interpolate(d2, size=e1.shape[-2:], mode="bilinear", align_corners=False)
         d1 = torch.cat([d1, e1], dim=1)
         d1 = self.dec1(d1)
 
@@ -302,7 +304,7 @@ class DeepCNN_MLP(BaseModel):
 
         # Ensure exact output dimensions match input
         if out.shape[-2:] != (orig_h, orig_w):
-            out = F.interpolate(out, size=(orig_h, orig_w), mode='bilinear', align_corners=False)
+            out = F.interpolate(out, size=(orig_h, orig_w), mode="bilinear", align_corners=False)
 
         return out
 
@@ -325,9 +327,9 @@ class DeepCNN_MLP_Medium(DeepCNN_MLP):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('mlp_hidden', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("mlp_hidden", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,
@@ -359,9 +361,9 @@ class DeepCNN_MLP_Large(DeepCNN_MLP):
         **kwargs,
     ):
         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_channels', None)
-        kwargs.pop('mlp_hidden', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_channels", None)
+        kwargs.pop("mlp_hidden", None)
+        kwargs.pop("dropout", None)
 
         super().__init__(
             field_type=field_type,

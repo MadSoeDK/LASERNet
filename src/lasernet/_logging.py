@@ -1,6 +1,7 @@
 import logging
 import os
 
+
 def setup_logging() -> None:
     """Configure repo-wide logging from LASERNET_LOG_LEVEL environment variable.
 

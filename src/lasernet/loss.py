@@ -36,8 +36,8 @@ class GradientWeightedMSELoss(nn.Module):
         # Sobel kernels for gradient computation
         sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
         sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
-        self.register_buffer('sobel_x', sobel_x.view(1, 1, 3, 3))
-        self.register_buffer('sobel_y', sobel_y.view(1, 1, 3, 3))
+        self.register_buffer("sobel_x", sobel_x.view(1, 1, 3, 3))
+        self.register_buffer("sobel_y", sobel_y.view(1, 1, 3, 3))
 
     def _compute_gradient_magnitude(self, field: torch.Tensor) -> torch.Tensor:
         """
@@ -179,8 +179,7 @@ class SolidificationWeightedMSELoss(nn.Module):
         super().__init__()
 
         assert T_solidus < T_liquidus, "Solidus must be less than liquidus"
-        assert weight_type in ["gaussian", "linear", "exponential"], \
-            f"Invalid weight_type: {weight_type}"
+        assert weight_type in ["gaussian", "linear", "exponential"], f"Invalid weight_type: {weight_type}"
         assert 0.0 <= base_weight <= 1.0, "base_weight must be in [0, 1]"
 
         self.T_solidus = T_solidus
@@ -223,17 +222,17 @@ class SolidificationWeightedMSELoss(nn.Module):
         weight = torch.where(
             in_solidification_range,
             torch.ones_like(temp),  # weight = 1.0 in solidification range
-            torch.ones_like(temp) * self.base_weight  # base_weight outside (0.0 = exclude)
+            torch.ones_like(temp) * self.base_weight,  # base_weight outside (0.0 = exclude)
         )
 
         # Apply valid region mask: regions outside mask get base_weight reduction
-        # but are NOT completely zeroed out. This prevents model from learning to 
+        # but are NOT completely zeroed out. This prevents model from learning to
         # output zeros in cold regions while still prioritizing the heated area.
         mask_float = mask.float()
         weight = torch.where(
             mask_float > 0,
             weight,  # Full weight in valid region
-            weight * self.base_weight  # Reduced weight outside valid region
+            weight * self.base_weight,  # Reduced weight outside valid region
         )
 
         return weight
@@ -384,10 +383,7 @@ class CombinedLoss(nn.Module):
         )
 
         # Combine
-        total_loss = (
-            self.solidification_weight * solid_loss +
-            self.global_weight * global_loss
-        )
+        total_loss = self.solidification_weight * solid_loss + self.global_weight * global_loss
 
         if self.return_components:
             return total_loss, solid_loss, global_loss

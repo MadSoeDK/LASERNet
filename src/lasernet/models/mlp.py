@@ -73,12 +73,14 @@ class MLP(BaseModel):
         prev_dim = input_size
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.BatchNorm1d(hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.ReLU(inplace=True),
+                    nn.Dropout(dropout),
+                ]
+            )
             prev_dim = hidden_dim
 
         layers.append(nn.Linear(prev_dim, output_size))
@@ -126,9 +128,9 @@ class MLP_Large(MLP):
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
     ):
-         # Remove params that we're overriding to avoid "multiple values" error
-        kwargs.pop('hidden_dims', None)
-        kwargs.pop('dropout', None)
+        # Remove params that we're overriding to avoid "multiple values" error
+        kwargs.pop("hidden_dims", None)
+        kwargs.pop("dropout", None)
         super().__init__(
             field_type=field_type,
             input_channels=input_channels,
@@ -159,8 +161,8 @@ class MLP_Light(MLP):
         loss_fn: nn.Module = nn.MSELoss(),
         **kwargs,
     ):
-        kwargs.pop('hidden_dims', None)
-        kwargs.pop('dropout', None)
+        kwargs.pop("hidden_dims", None)
+        kwargs.pop("dropout", None)
         super().__init__(
             field_type=field_type,
             input_channels=input_channels,

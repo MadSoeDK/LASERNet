@@ -13,6 +13,7 @@ from lasernet.utils import get_model_filename, get_model_from_checkpoint
 from torch.utils.data import DataLoader
 import typer
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
@@ -52,7 +53,7 @@ def evaluate(
         split="test",
         normalize=True,
         normalizer=normalizer,
-        sequence_length=seq_len
+        sequence_length=seq_len,
     )
 
     logger.info(f"Test dataset: {len(test_dataset)} samples")
@@ -61,12 +62,7 @@ def evaluate(
     logger.info(f"Normalizer channel maxs: {normalizer.channel_maxs}")
 
     # Create data loader
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers
-    )
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     # Configure wandb logger if requested
     wandb_logger = None
@@ -88,11 +84,11 @@ def evaluate(
     test_results = trainer.test(model, dataloaders=test_loader, verbose=True)
 
     # Extract results from PyTorch Lightning
-    test_mse = test_results[0]['test_mse']
-    test_mae = test_results[0]['test_mae']
-    test_loss = test_results[0]['test_loss']
-    test_solidification_mse = test_results[0]['test_solidification_mse']
-    test_solidification_mae = test_results[0]['test_solidification_mae']
+    test_mse = test_results[0]["test_mse"]
+    test_mae = test_results[0]["test_mae"]
+    test_loss = test_results[0]["test_loss"]
+    test_solidification_mse = test_results[0]["test_solidification_mse"]
+    test_solidification_mae = test_results[0]["test_solidification_mae"]
 
     if normalizer.channel_maxs is None or normalizer.channel_mins is None:
         raise ValueError("Normalizer channel mins/maxs are not set.")
@@ -109,23 +105,23 @@ def evaluate(
         "channel_maxs": normalizer.channel_maxs.tolist(),
     }
 
-        # Save results to JSON file (append to existing or create new)
+    # Save results to JSON file (append to existing or create new)
     results_path = output_path / "results.json"
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
     # Load existing results or create new dict
     if results_path.exists():
-        with open(results_path, 'r') as f:
+        with open(results_path, "r") as f:
             all_results = json.load(f)
     else:
         all_results = {}
-    
+
     # Add this model's results under its name (include seq_len if non-default)
     model_key = get_model_filename(model, loss, model.field_type, seq_len)
     all_results[model_key] = results
-    
+
     # Save back to file
-    with open(results_path, 'w') as f:
+    with open(results_path, "w") as f:
         json.dump(all_results, f, indent=2)
     logger.info(f"Evaluation results saved to {results_path}")
 
@@ -133,20 +129,22 @@ def evaluate(
 
 
 def main(
-        checkpoint_dir: Path = Path("models/"),
-        field_type: FieldType = "temperature",
-        network: NetworkType = "deep_cnn_lstm_large",
-        loss: LossType = "mse",
-        batch_size: int = 16,
-        num_workers: int = 0,
-        seq_len: int = 3,
-        use_wandb: bool = False,
+    checkpoint_dir: Path = Path("models/"),
+    field_type: FieldType = "temperature",
+    network: NetworkType = "deep_cnn_lstm_large",
+    loss: LossType = "mse",
+    batch_size: int = 16,
+    num_workers: int = 0,
+    seq_len: int = 3,
+    use_wandb: bool = False,
 ):
     """Evaluate a trained model from checkpoint."""
     model = get_model_from_checkpoint(checkpoint_dir, network, field_type, loss, seq_len)
 
     if field_type != model.field_type:
-        raise ValueError(f"Field type mismatch: checkpoint model has field_type={model.field_type}, but got field_type={field_type}")
+        raise ValueError(
+            f"Field type mismatch: checkpoint model has field_type={model.field_type}, but got field_type={field_type}"
+        )
 
     norm_stats_file = checkpoint_dir / f"{model.field_type}_norm_stats.pt"
 
@@ -155,8 +153,7 @@ def main(
     # Load normalizer (saved during training)
     if not norm_stats_file.exists():
         raise FileNotFoundError(
-            f"Normalizer not found at {norm_stats_file}. "
-            f"Run training first to generate normalization stats."
+            f"Normalizer not found at {norm_stats_file}. " f"Run training first to generate normalization stats."
         )
 
     normalizer = DataNormalizer.load(norm_stats_file)

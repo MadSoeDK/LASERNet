@@ -122,7 +122,7 @@ class BaseModel(pl.LightningModule):
         x, y, temperature, mask = batch
         y_hat = self(x)
         loss = self._compute_loss(y_hat, y, temperature, mask)
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
@@ -130,7 +130,7 @@ class BaseModel(pl.LightningModule):
         x, y, temperature, mask = batch
         y_hat = self(x)
         loss = self._compute_loss(y_hat, y, temperature, mask)
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def test_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
@@ -153,23 +153,21 @@ class BaseModel(pl.LightningModule):
         if solidification_mask.any():
             solidification_mask_expanded = solidification_mask.unsqueeze(1).expand_as(y)
             solidification_mse = nn.functional.mse_loss(
-                y_hat[solidification_mask_expanded],
-                y[solidification_mask_expanded]
+                y_hat[solidification_mask_expanded], y[solidification_mask_expanded]
             )
             solidification_mae = nn.functional.l1_loss(
-                y_hat[solidification_mask_expanded],
-                y[solidification_mask_expanded]
+                y_hat[solidification_mask_expanded], y[solidification_mask_expanded]
             )
         else:
             # Fallback if no pixels in solidification range
             solidification_mse = mse
             solidification_mae = mae
 
-        self.log('test_mse', mse, on_step=False, on_epoch=True)
-        self.log('test_mae', mae, on_step=False, on_epoch=True)
-        self.log('test_loss', configured_loss, on_step=False, on_epoch=True)
-        self.log('test_solidification_mse', solidification_mse, on_step=False, on_epoch=True)
-        self.log('test_solidification_mae', solidification_mae, on_step=False, on_epoch=True)
+        self.log("test_mse", mse, on_step=False, on_epoch=True)
+        self.log("test_mae", mae, on_step=False, on_epoch=True)
+        self.log("test_loss", configured_loss, on_step=False, on_epoch=True)
+        self.log("test_solidification_mse", solidification_mse, on_step=False, on_epoch=True)
+        self.log("test_solidification_mae", solidification_mae, on_step=False, on_epoch=True)
 
         return mse
 
@@ -182,7 +180,7 @@ class BaseModel(pl.LightningModule):
         )
 
         if not self.use_scheduler:
-            return { "optimizer": optimizer }
+            return {"optimizer": optimizer}
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
@@ -210,8 +208,10 @@ class BaseModel(pl.LightningModule):
 
     def _register_activation_hook(self, module: nn.Module, name: str) -> None:
         """Register forward hook to capture activations."""
+
         def hook(module, input, output):
             self.activations[name] = output.detach()
+
         module.register_forward_hook(hook)
 
     @property
@@ -250,8 +250,11 @@ class DoubleConvBlock(nn.Module):
         )
 
         # Residual projection if channels differ
-        self.residual = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False) \
-            if in_channels != out_channels else nn.Identity()
+        self.residual = (
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
+            if in_channels != out_channels
+            else nn.Identity()
+        )
 
         self.relu = nn.ReLU(inplace=True)
 
