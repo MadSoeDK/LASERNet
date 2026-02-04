@@ -22,6 +22,23 @@ ln -s "$BLACKHOLE/models" /zhome/b0/7/168550/Github/LASERNet/models
 ln -s "$BLACKHOLE/data" /zhome/b0/7/168550/Github/LASERNet/data
 ```
 
+### Download dataset locally
+The dataset is hosted at https://storage.googleapis.com/lasernet-data. Download it into a relative `./data` folder from the project root.
+
+Use `wget` to mirror the bucket over HTTPS:
+
+```bash
+mkdir -p data
+wget -r -np -nH --cut-dirs=1 -R "index.html*" -P data https://storage.googleapis.com/lasernet-data/
+```
+
+Or use `curl` with `--remote-name-all`:
+
+```bash
+mkdir -p data
+curl -L --remote-name-all --output-dir data https://storage.googleapis.com/lasernet-data/
+```
+
 ## Quickstart
 Train, evaluate, and predict via CLI scripts:
 
