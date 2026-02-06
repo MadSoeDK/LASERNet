@@ -15,7 +15,7 @@ uv sync --locked --dev
 ```
 
 ## Data setup
-On DTU HPC, data and models are uses large storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data` and `models`, so that they are relative to the project root directory.
+On DTU HPC, data and models uses large amount of storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data/` and `models/` folders, so that they are relative to the project root directory.
 
 ```bash
 ln -s "$BLACKHOLE/models" /zhome/b0/7/168550/Github/LASERNet/models
@@ -28,7 +28,7 @@ Train, evaluate, and predict via CLI scripts:
 ```bash
 uv run src/lasernet/train.py --network deep_cnn_lstm_large --field-type temperature
 uv run src/lasernet/evaluate.py --network deep_cnn_lstm_large --field-type temperature
-uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 18
+uv run src/lasernet/predict.py --network deep_cnn_lstm_large --field-type temperature --timestep 21
 ```
 
 Experiments from YAML configs:
@@ -39,7 +39,7 @@ uv run src/lasernet/experiments/experiments.py
 
 ## Results
 
-**Model prediction comparison (timestep 3).** Qualitative comparison across selected models for a fixed timestep.
+**Model prediction comparison (timestep 21).** Qualitative comparison across selected models for a fixed timestep.
 
 ![Model prediction comparison](model_prediction_comparison_3.png)
 
