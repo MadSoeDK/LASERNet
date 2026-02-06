@@ -3,7 +3,7 @@
 Spatiotemporal deep learning for predicting microstructure evolution in laser-based additive manufacturing.
 
 ## Highlights
-- Multiple architectures (CNN-LSTM, PredRNN, Transformer U-Net, MLP baselines)
+- Multiple architectures (CNN-LSTM, PredRNN, MLP baselines)
 - End-to-end training/evaluation/prediction scripts
 - Reproducible experiments via YAML configs
 
