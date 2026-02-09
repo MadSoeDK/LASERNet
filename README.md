@@ -3,7 +3,7 @@
 Spatiotemporal deep learning for predicting microstructure evolution in laser-based additive manufacturing.
 
 ## Highlights
-- Multiple architectures (CNN-LSTM, PredRNN, Transformer U-Net, MLP baselines)
+- Multiple architectures (CNN-LSTM, PredRNN, MLP baselines)
 - End-to-end training/evaluation/prediction scripts
 - Reproducible experiments via YAML configs
 
@@ -15,7 +15,7 @@ uv sync --locked --dev
 ```
 
 ## Data setup
-On DTU HPC, data and models are uses large storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data` and `models`, so that they are relative to the project root directory.
+On DTU HPC, data and models uses large amount of storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data/` and `models/` folders, so that they are relative to the project root directory.
 
 ```bash
 ln -s "$BLACKHOLE/models" /zhome/b0/7/168550/Github/LASERNet/models
@@ -56,7 +56,7 @@ uv run src/lasernet/experiments/experiments.py
 
 ## Results
 
-**Model prediction comparison (timestep 3).** Qualitative comparison across selected models for a fixed timestep.
+**Model prediction comparison (timestep 21).** Qualitative comparison across selected models for a fixed timestep.
 
 ![Model prediction comparison](model_prediction_comparison_3.png)
 
