@@ -14,29 +14,22 @@ This project uses uv and Python 3.12.
 uv sync --locked --dev
 ```
 
-## Data setup
-On DTU HPC, data and models uses large amount of storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB). Thus, it is important to make symlinks to `data/` and `models/` folders, so that they are relative to the project root directory.
+### Download dataset locally
+The dataset is hosted at https://storage.googleapis.com/lasernet-data. Download it into a relative `./data` folder from the project root.
+
+Use `wget` to download the files over HTTPS:
+
+```bash
+mkdir -p data && cd data
+wget -i https://storage.googleapis.com/lasernet-data/filelist.txt
+```
+
+## Data setup on HPC
+Data and models uses large amount of storage space and is therefore stored on a seperate blackhole scratch drive (≈50 GB) on DTU HPC. Thus, it is important to make symlinks to `data/` and `models/` folders, so that they are relative to the project root directory.
 
 ```bash
 ln -s "$BLACKHOLE/models" /zhome/b0/7/168550/Github/LASERNet/models
 ln -s "$BLACKHOLE/data" /zhome/b0/7/168550/Github/LASERNet/data
-```
-
-### Download dataset locally
-The dataset is hosted at https://storage.googleapis.com/lasernet-data. Download it into a relative `./data` folder from the project root.
-
-Use `wget` to mirror the bucket over HTTPS:
-
-```bash
-mkdir -p data
-wget -r -np -nH --cut-dirs=1 -R "index.html*" -P data https://storage.googleapis.com/lasernet-data/
-```
-
-Or use `curl` with `--remote-name-all`:
-
-```bash
-mkdir -p data
-curl -L --remote-name-all --output-dir data https://storage.googleapis.com/lasernet-data/
 ```
 
 ## Quickstart
